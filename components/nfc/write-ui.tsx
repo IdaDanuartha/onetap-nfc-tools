@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { isNFCSupported, writeCustomRecord } from '@/lib/nfc-service';
+import { encryptData } from '@/lib/crypto';
 import { logActivity } from '@/lib/activity-logger';
 import { toast } from 'sonner';
-import { Wifi, Link as LinkIcon, Type, Loader2, AlertCircle, PenSquare, Phone, MessageSquare, Mail, Database, RefreshCcw } from 'lucide-react';
+import { Wifi, Link as LinkIcon, Type, Loader2, AlertCircle, PenSquare, Phone, MessageSquare, Mail, Database, RefreshCcw, Eraser, Lock, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +20,7 @@ interface WriteUIProps {
   userName: string;
 }
 
-type RecordType = 'url' | 'text' | 'phone' | 'sms' | 'email' | 'database';
+type RecordType = 'url' | 'text' | 'phone' | 'sms' | 'email' | 'database' | 'erase';
 
 export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   const [isSupported, setIsSupported] = useState(true);
@@ -30,6 +31,10 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   // Database mode state
   const [dbTags, setDbTags] = useState<any[]>([]);
   const [selectedDbTag, setSelectedDbTag] = useState('');
+
+  // Security mode state
+  const [isSecure, setIsSecure] = useState(false);
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     setIsSupported(isNFCSupported());
@@ -46,16 +51,18 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   }, [recordType, dbTags.length]);
 
   async function handleWriteStart() {
-    if (!data.trim()) {
+    if (recordType !== 'erase' && !data.trim()) {
       toast.error('Please enter data or select a tag to write.');
       return;
     }
     
-    // Auto-fix URLs and formats
     let finalData = data;
-    let nfcRecordType: 'url' | 'text' | 'json' = 'url';
+    let nfcRecordType: 'url' | 'text' | 'json' | 'erase' = 'url';
 
-    if (recordType === 'url') {
+    if (recordType === 'erase') {
+      nfcRecordType = 'erase';
+      finalData = '';
+    } else if (recordType === 'url') {
       if (!finalData.startsWith('http://') && !finalData.startsWith('https://')) {
         finalData = `https://${finalData}`;
       }
@@ -71,30 +78,49 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       nfcRecordType = 'json'; // Database sync writes as application/json
     }
 
+    // Handle AES Application-Level Encryption
+    if (isSecure && recordType !== 'erase') {
+      if (password.length < 4) {
+        toast.error('Encryption password must be at least 4 characters long.');
+        return;
+      }
+      try {
+        finalData = await encryptData(finalData, password);
+        nfcRecordType = 'text'; // Encrypted strings are safely stored as standard Text NDEF records
+      } catch (err) {
+        toast.error('Failed to encrypt payload');
+        return;
+      }
+    }
+
     setStatus('waiting_for_tap');
     toast.info('Hold the NFC tag near your device...');
 
     try {
       await writeCustomRecord(nfcRecordType, finalData);
       
-      const dbTagMetadata = recordType === 'database' 
-         ? { synced_tag_id: selectedDbTag, action_detail: 'Synced Supabase JSON to Tag' } 
-         : { action_detail: 'Wrote generic payload' };
+      let actionDetail = 'Wrote generic payload';
+      if (recordType === 'erase') actionDetail = 'Erased NFC Tag records';
+      else if (recordType === 'database') actionDetail = 'Synced Supabase JSON to Tag';
+      
+      if (isSecure) actionDetail += ' (Encrypted with AES-GCM)';
 
       await logActivity({
         action: 'tag_format', 
         tagId: selectedDbTag || null,
         performedBy: userId,
         metadata: {
-          ...dbTagMetadata,
+          synced_tag_id: recordType === 'database' ? selectedDbTag : undefined,
+          action_detail: actionDetail,
           record_type: recordType,
-          preview: finalData.substring(0, 30),
+          preview: recordType === 'erase' ? 'Wiped clean' : (isSecure ? '[Encrypted Content]' : finalData.substring(0, 30)),
           performer_email: userEmail,
           performer_name: userName,
         },
       });
 
-      toast.success('Successfully wrote data to NFC tag!');
+      if (recordType === 'erase') toast.success('Tag successfully erased!');
+      else toast.success('Successfully wrote data to NFC tag!');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to write to tag');
       console.error('[NFC WRITE ERROR]', error);
@@ -118,6 +144,12 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
 
   const renderInputFields = () => {
     switch(recordType) {
+      case 'erase':
+        return (
+          <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-xl text-destructive text-sm font-medium">
+             This action will completely wipe all NDEF records from the physical NFC tag, returning it to an empty state.
+          </div>
+        );
       case 'database':
         return (
           <div className="space-y-3">
@@ -220,20 +252,23 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     { id: 'phone', label: 'Phone Call', icon: Phone },
     { id: 'sms', label: 'Send SMS', icon: MessageSquare },
     { id: 'email', label: 'Send Email', icon: Mail },
+    { id: 'erase', label: 'Erase Tag', icon: Eraser },
   ] as const;
 
   return (
     <div className="space-y-6">
       {status === 'waiting_for_tap' ? (
-        <Card className="border-[hsl(var(--primary))] animate-in zoom-in duration-300">
+        <Card className={cn("border animate-in zoom-in duration-300", recordType === 'erase' ? "border-destructive" : "border-primary")}>
           <CardContent className="p-8 text-center space-y-4">
             <div className="relative mx-auto w-24 h-24 mb-6 flex items-center justify-center">
-              <span className="absolute w-24 h-24 rounded-full border-2 border-[hsl(var(--primary))]/30 animate-nfc-ring" />
-              <span className="absolute w-24 h-24 rounded-full border-2 border-[hsl(var(--primary))]/20 animate-nfc-ring-2" />
-              <Wifi className="w-10 h-10 text-[hsl(var(--primary))] animate-pulse" />
+              <span className={cn("absolute w-24 h-24 rounded-full border-2 animate-nfc-ring", recordType === 'erase' ? "border-destructive/30" : "border-primary/30")} />
+              <span className={cn("absolute w-24 h-24 rounded-full border-2 animate-nfc-ring-2", recordType === 'erase' ? "border-destructive/20" : "border-primary/20")} />
+              <Wifi className={cn("w-10 h-10 animate-pulse", recordType === 'erase' ? "text-destructive" : "text-primary")} />
             </div>
-            <h3 className="font-semibold text-xl">Ready to Write</h3>
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            <h3 className="font-semibold text-xl">
+               {recordType === 'erase' ? 'Ready to Erase' : 'Ready to Write'}
+            </h3>
+            <p className="text-sm text-muted-foreground">
               Tap the NFC tag against the back of your device.
             </p>
             <Button variant="outline" onClick={() => setStatus('idle')} className="mt-4">
@@ -245,10 +280,10 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
         <Card className="border-[hsl(var(--border))]">
           <CardHeader>
             <CardTitle className="text-xl flex items-center gap-2">
-              <PenSquare className="w-5 h-5 text-[hsl(var(--primary))]" />
+              <PenSquare className="w-5 h-5 text-primary" />
               Write Options
             </CardTitle>
-            <CardDescription>Format blank tags manually or clone sync payloads directly from your managed database.</CardDescription>
+            <CardDescription>Format blank tags manually, clone synced payloads, or completely wipe tags.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Type selector */}
@@ -258,15 +293,16 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                   key={t.id}
                   type="button"
                   onClick={() => {
-                    setRecordType(t.id);
+                    setRecordType(t.id as RecordType);
                     setData('');
                     setSelectedDbTag('');
+                    if (t.id === 'erase') setIsSecure(false);
                   }}
                   className={cn(
                     "flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all h-24",
                     recordType === t.id 
-                      ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))] shadow-sm" 
-                      : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))]/40 hover:bg-[hsl(var(--muted))]/50"
+                      ? (t.id === 'erase' ? "border-destructive bg-destructive/5 text-destructive shadow-sm" : "border-primary bg-primary/5 text-primary shadow-sm")
+                      : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-muted/50"
                   )}
                 >
                   <t.icon className={cn("w-5 h-5 md:w-6 md:h-6", recordType === t.id && t.id === 'database' && "text-emerald-500")} />
@@ -276,18 +312,52 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
             </div>
 
             {/* Input field */}
-            <div className="space-y-3 pt-2 bg-[hsl(var(--muted))]/30 p-4 rounded-xl border border-[hsl(var(--border))]/50">
-              <Label className="text-[hsl(var(--foreground))] text-[13px] font-semibold">{recordType === 'database' ? 'Database Source' : 'Data Payload'}</Label>
+            <div className={cn("space-y-3 pt-2 p-4 rounded-xl border border-border/50", recordType === 'erase' ? 'bg-destructive/5' : 'bg-muted/30')}>
+              {recordType !== 'erase' && (
+                <Label className="text-foreground text-[13px] font-semibold">{recordType === 'database' ? 'Database Source' : 'Data Payload'}</Label>
+              )}
               {renderInputFields()}
+
+              {/* Password Encryption Toggle (Hidden for Erase) */}
+              {recordType !== 'erase' && (
+                <div className="pt-3 border-t border-border/50 mt-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      type="button"
+                      onClick={() => setIsSecure(!isSecure)} 
+                      className={cn("flex items-center justify-center p-2 rounded-lg border transition-colors", isSecure ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/40" : "bg-card text-muted-foreground border-border")}
+                    >
+                      {isSecure ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                    </button>
+                    <div className="flex-1 cursor-pointer" onClick={() => setIsSecure(!isSecure)}>
+                      <p className="text-sm font-semibold text-foreground">Secure Payload</p>
+                      <p className="text-[10px] text-muted-foreground">Encrypt this data with AES-256 password protection.</p>
+                    </div>
+                  </div>
+
+                  {isSecure && (
+                    <div className="animate-in slide-in-from-top-2 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg space-y-2">
+                      <Label className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold">Encryption Password</Label>
+                      <Input 
+                        type="password" 
+                        className="h-9 border-emerald-500/30 focus-visible:ring-emerald-500" 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter a secure password..."
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <Button 
-              className="w-full h-11 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm text-sm"
+              className={cn("w-full h-11 text-primary-foreground shadow-sm text-sm", recordType === 'erase' ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground" : "bg-primary")}
               size="lg"
               onClick={handleWriteStart}
-              disabled={!data.trim()}
+              disabled={recordType !== 'erase' && !data.trim()}
             >
-              Write to NFC Tag
+              {recordType === 'erase' ? 'Format & Erase Tag' : 'Write to NFC Tag'}
             </Button>
           </CardContent>
         </Card>

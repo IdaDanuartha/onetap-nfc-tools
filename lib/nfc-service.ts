@@ -136,14 +136,16 @@ export async function writeTag(payload: Record<string, unknown>): Promise<void> 
 /**
  * Write a standard NDEF record (URL or Text) to the tag.
  */
-export async function writeCustomRecord(type: 'url' | 'text' | 'json', data: string): Promise<void> {
+export async function writeCustomRecord(type: 'url' | 'text' | 'json' | 'erase', data: string): Promise<void> {
   if (!isNFCSupported()) throw new Error('Web NFC is not supported');
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ndef = new (window as any).NDEFReader();
   let record: any;
 
-  if (type === 'url') {
+  if (type === 'erase') {
+    record = { recordType: 'empty' };
+  } else if (type === 'url') {
     record = { recordType: 'url', data };
   } else if (type === 'json') {
     record = { recordType: 'mime', mediaType: 'application/json', data: new TextEncoder().encode(data) };

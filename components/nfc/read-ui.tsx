@@ -3,12 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { isNFCSupported, readDetailedTag } from '@/lib/nfc-service';
+import { decryptData } from '@/lib/crypto';
 import { logActivity } from '@/lib/activity-logger';
 import { toast } from 'sonner';
 import { DetailedNfcReadResult } from '@/lib/types';
-import { Wifi, AlertCircle, Loader2, Database, Fingerprint, FileCode, Search, ShieldCheck, User } from 'lucide-react';
+import { Wifi, AlertCircle, Loader2, Database, Fingerprint, FileCode, Search, ShieldCheck, User, Lock, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +24,11 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
   const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'unsupported' | 'error'>('idle');
   const [result, setResult] = useState<DetailedNfcReadResult | null>(null);
   const [dbRecord, setDbRecord] = useState<any | null>(null);
+  
+  // Decryption state
+  const [decryptPasswords, setDecryptPasswords] = useState<Record<number, string>>({});
+  const [decryptedRecords, setDecryptedRecords] = useState<Record<number, string>>({});
+
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -35,6 +42,8 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
     setStatus('scanning');
     setResult(null);
     setDbRecord(null);
+    setDecryptedRecords({});
+    setDecryptPasswords({});
 
     try {
       const cleanup = await readDetailedTag(
@@ -88,6 +97,16 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
       toast.error('Failed to start reader');
     }
   }
+
+  const handleDecrypt = async (index: number, encryptedPayload: string) => {
+    try {
+      const plainText = await decryptData(encryptedPayload, decryptPasswords[index] || '');
+      setDecryptedRecords(prev => ({ ...prev, [index]: plainText }));
+      toast.success('Record decrypted successfully!');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Decryption failed');
+    }
+  };
 
   if (status === 'unsupported') {
     return (
@@ -183,7 +202,7 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
                 {dbRecord.payload_data && (
                   <div>
                     <p className="text-xs text-muted-foreground font-medium uppercase mb-1">Database Sync Payload</p>
-                    <pre className="text-xs bg-card border border-border/40 p-3 rounded-md font-mono whitespace-pre-wrap text-foreground/80 leading-relaxed shadow-inner">
+                    <pre className="text-[11px] bg-card border border-border/40 p-3 rounded-md font-mono whitespace-pre-wrap text-foreground/80 leading-relaxed shadow-inner">
                       {JSON.stringify(dbRecord.payload_data, null, 2)}
                     </pre>
                   </div>
@@ -209,7 +228,7 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
                 <div className="p-2 bg-primary/10 text-primary rounded-lg"><Fingerprint className="w-5 h-5" /></div>
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase">Hardware UID</p>
-                  <p className="font-mono text-sm">{result.serialNumber}</p>
+                  <p className="font-mono text-xs font-semibold mt-0.5 tracking-tight">{result.serialNumber}</p>
                 </div>
               </CardContent>
             </Card>
@@ -219,7 +238,7 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
                 <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg"><Database className="w-5 h-5" /></div>
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase">Payload Size</p>
-                  <p className="text-sm font-semibold">{result.messageBytes > 0 ? `${result.messageBytes} Bytes` : 'Empty'}</p>
+                  <p className="text-sm font-semibold mt-0.5">{result.messageBytes > 0 ? `${result.messageBytes} Bytes` : 'Empty'}</p>
                 </div>
               </CardContent>
             </Card>
@@ -229,7 +248,7 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
                 <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg"><FileCode className="w-5 h-5" /></div>
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase">Records Count</p>
-                  <p className="text-sm font-semibold">{result.recordCount} NDEF Records</p>
+                  <p className="text-sm font-semibold mt-0.5">{result.recordCount} NDEF Records</p>
                 </div>
               </CardContent>
             </Card>
@@ -240,22 +259,50 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
              {result.records.length === 0 && (
                <Card className="bg-muted/30 border-dashed"><CardContent className="p-6 text-center text-sm text-muted-foreground">No records found on this tag.</CardContent></Card>
              )}
-             {result.records.map((record, i) => (
-                <Card key={i} className="overflow-hidden border-border/70">
-                  <div className="bg-muted/50 px-4 py-2 border-b border-border/40 flex justify-between items-center text-[11px]">
-                    <span className="font-bold text-foreground uppercase tracking-wider">Record #{i+1} : {record.recordType}</span>
-                    <span className="text-muted-foreground font-mono">{record.byteLength} Bytes</span>
-                  </div>
-                  <CardContent className="p-4">
-                    {record.mediaType && (
-                       <p className="text-[11px] text-muted-foreground mb-2 border-b border-border/50 pb-2">MIME Target: <span className="font-mono text-foreground font-semibold">{record.mediaType}</span></p>
-                    )}
-                    <pre className="text-[13px] bg-card border border-border/30 p-3 rounded-md font-mono whitespace-pre-wrap overflow-x-auto text-foreground/90 leading-relaxed shadow-inner">
-                      {record.data || '[Empty/Binary record body]'}
-                    </pre>
-                  </CardContent>
-                </Card>
-             ))}
+             {result.records.map((record, i) => {
+                const isEncrypted = record.data && record.data.startsWith('ENC:1:');
+                const isDecrypted = !!decryptedRecords[i];
+
+                return (
+                  <Card key={i} className={cn("overflow-hidden border-border/70", isEncrypted && !isDecrypted && "border-amber-500/50 bg-amber-500/5")}>
+                    <div className={cn("px-4 py-2 border-b flex justify-between items-center text-[11px]", isEncrypted && !isDecrypted ? "bg-amber-500/10 border-amber-500/20" : "bg-muted/50 border-border/40")}>
+                      <span className="font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        {isEncrypted ? (isDecrypted ? <Unlock className="w-3 h-3 text-emerald-500" /> : <Lock className="w-3 h-3 text-amber-600" />) : <FileCode className="w-3 h-3" />}
+                        Record #{i+1} : {record.recordType}
+                      </span>
+                      <span className="text-muted-foreground font-mono">{record.byteLength} Bytes</span>
+                    </div>
+                    <CardContent className="p-4">
+                      {record.mediaType && (
+                        <p className="text-[11px] text-muted-foreground mb-2 border-b border-border/50 pb-2">MIME Target: <span className="font-mono text-foreground font-semibold">{record.mediaType}</span></p>
+                      )}
+                      
+                      {isEncrypted && !isDecrypted ? (
+                         <div className="space-y-3">
+                           <div className="flex gap-3">
+                             <Input 
+                               type="password" 
+                               placeholder="Password to decrypt..."
+                               value={decryptPasswords[i] || ''}
+                               onChange={(e) => setDecryptPasswords(p => ({...p, [i]: e.target.value}))}
+                               className="h-9 bg-background border-amber-500/30"
+                             />
+                             <Button size="sm" onClick={() => handleDecrypt(i, record.data)} className="h-9 bg-amber-600 hover:bg-amber-700">Unlock</Button>
+                           </div>
+                           <p className="text-[10px] text-amber-700/80 dark:text-amber-500/80 font-medium">This record has been secured with AES-256 application-layer encryption.</p>
+                         </div>
+                      ) : (
+                        <div className="space-y-2">
+                           {isDecrypted && <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 uppercase tracking-widest border border-emerald-500/20">Decrypted Payload</span>}
+                           <pre className="text-[13px] bg-card border border-border/30 p-3 rounded-md font-mono whitespace-pre-wrap overflow-x-auto text-foreground/90 leading-relaxed shadow-inner">
+                            {isDecrypted ? decryptedRecords[i] : (record.data || '[Empty/Binary record body]')}
+                           </pre>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+             })}
           </div>
         </div>
       )}
