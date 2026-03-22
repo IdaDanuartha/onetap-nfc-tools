@@ -4,109 +4,108 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Mail, Lock, Wifi } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Loader2, Fingerprint, Mail, Lock } from 'lucide-react';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
+    setIsLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
     if (error) {
       toast.error(error.message);
-      setLoading(false);
-      return;
+      setIsLoading(false);
+    } else {
+      toast.success('Signed in successfully');
+      router.push('/');
+      router.refresh(); 
     }
-
-    toast.success('Logged in successfully');
-    router.push('/');
-    router.refresh();
   }
 
   return (
-    <Card className="border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl">
-      <CardHeader className="space-y-3 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-            <Wifi className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <CardTitle className="text-white text-xl">Welcome back</CardTitle>
-            <CardDescription className="text-slate-400 text-sm">
-              Sign in to OneTap NFC Admin
-            </CardDescription>
-          </div>
+    <Card className="w-full bg-card border border-border/60 shadow-xl shadow-black/5 dark:shadow-black/20 animate-in fade-in zoom-in duration-500 rounded-2xl overflow-hidden">
+      <CardHeader className="space-y-4 pb-6 pt-8 bg-card relative z-10">
+        <div className="w-14 h-14 rounded-2xl bg-muted border border-border/50 flex items-center justify-center mx-auto transition-transform hover:scale-105">
+          <Fingerprint className="w-7 h-7 text-foreground" strokeWidth={1.5} />
+        </div>
+        <div className="text-center space-y-1.5">
+          <CardTitle className="text-2xl font-bold tracking-tight text-foreground">Admin Access</CardTitle>
+          <CardDescription className="text-sm text-muted-foreground">
+            Sign in to your OneTap NFC workspace
+          </CardDescription>
         </div>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleLogin} className="space-y-4">
+
+      <form onSubmit={handleLogin} className="bg-card relative z-10">
+        <CardContent className="space-y-5 px-8 pt-2">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-slate-300 text-sm">
-              Email address
-            </Label>
+            <Label className="text-sm font-semibold text-foreground" htmlFor="email">Email address</Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Mail className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 id="email"
                 type="email"
                 placeholder="admin@example.com"
                 value={email}
+                autoComplete="email"
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 required
-                className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20"
+                className="pl-10 h-11 bg-background border-input text-foreground transition-all focus:ring-2 focus:ring-primary/20 rounded-xl"
               />
             </div>
           </div>
-
+          
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-slate-300 text-sm">
-              Password
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold text-foreground" htmlFor="password">Password</Label>
+            </div>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Lock className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 id="password"
                 type="password"
                 placeholder="••••••••"
                 value={password}
+                autoComplete="current-password"
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 required
-                className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20"
+                className="pl-10 h-11 bg-background border-input text-foreground transition-all focus:ring-2 focus:ring-primary/20 rounded-xl"
               />
             </div>
           </div>
+        </CardContent>
 
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 shadow-lg shadow-blue-500/25 transition-all duration-200"
+        <CardFooter className="flex flex-col space-y-4 px-8 pb-8 pt-4 mt-5">
+          <Button 
+            className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-medium shadow-sm transition-all" 
+            type="submit" 
+            disabled={isLoading}
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Signing in…
-              </>
-            ) : (
-              'Sign in'
-            )}
+            {isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            Sign in strictly
           </Button>
-
-          <p className="text-center text-xs text-slate-500 pt-2">
-            Admin accounts are managed by your system administrator.
+          
+          <p className="text-[11px] text-center text-muted-foreground/80 font-medium uppercase tracking-widest mt-4">
+            Secured System Environment
           </p>
-        </form>
-      </CardContent>
+        </CardFooter>
+      </form>
     </Card>
   );
 }

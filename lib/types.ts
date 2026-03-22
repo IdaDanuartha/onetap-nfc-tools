@@ -5,7 +5,8 @@ export type ActivityAction =
   | 'tag_written'
   | 'tag_cleared'
   | 'tag_status_changed'
-  | 'tag_scanned';
+  | 'tag_scanned'
+  | 'tag_format';
 
 export interface NfcTag {
   id: string;

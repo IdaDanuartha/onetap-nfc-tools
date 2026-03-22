@@ -1,28 +1,33 @@
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Wifi } from "lucide-react";
+
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-4">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
-      </div>
-
-      {/* Brand mark top */}
-      <div className="absolute top-6 left-6 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.25 11.25a4.25 4.25 0 014.25-4.25M5 11.25a7.25 7.25 0 017.25-7.25M2 11.25A10.25 10.25 0 0112.25 1" />
-          </svg>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 relative overflow-hidden transition-colors duration-300">
+      {/* Absolute Header with Logo & Theme Toggle */}
+      <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+            <Wifi className="w-5 h-5 text-primary-foreground" />
+          </div>
+          <span className="text-foreground font-bold tracking-tight text-lg">OneTap NFC</span>
         </div>
-        <span className="text-white font-semibold text-sm">OneTap NFC</span>
+        <ThemeToggle />
       </div>
 
-      <div className="relative w-full max-w-md">
+      {/* Main Container */}
+      <div className="relative w-full max-w-md z-10 -mt-10">
         {children}
+      </div>
+
+      {/* Subtle Background Decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-1/4 -right-20 w-[500px] h-[500px] bg-primary/[0.02] rounded-full blur-3xl dark:bg-primary/[0.05]" />
+        <div className="absolute -bottom-40 -left-20 w-[600px] h-[600px] bg-muted/50 rounded-full blur-3xl dark:bg-accent/30" />
       </div>
     </div>
   );

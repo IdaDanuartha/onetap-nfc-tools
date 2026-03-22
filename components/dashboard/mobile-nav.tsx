@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Wifi, Tags } from 'lucide-react';
+import { LayoutDashboard, Wifi, Tags, PenSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/scanner', label: 'Scanner', icon: Wifi },
+  { href: '/scanner', label: 'Scan', icon: Wifi },
+  { href: '/write', label: 'Write', icon: PenSquare },
   { href: '/tags', label: 'Tags', icon: Tags },
 ];
 
@@ -26,8 +27,8 @@ export function MobileNav() {
               className={cn(
                 'flex-1 flex flex-col items-center justify-center gap-1 py-3 px-2 text-[10px] font-medium transition-all duration-150',
                 active
-                  ? 'text-blue-400'
-                  : 'text-slate-500 hover:text-slate-300'
+                  ? 'text-[hsl(var(--primary))]'
+                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
               )}
             >
               <Icon

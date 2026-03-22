@@ -77,6 +77,18 @@ export async function writeTag(payload: Record<string, unknown>): Promise<void> 
 }
 
 /**
+ * Write a standard NDEF record (URL or Text) to the tag.
+ */
+export async function writeCustomRecord(type: 'text' | 'url', data: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ndef = new (window as any).NDEFReader();
+  
+  await ndef.write({
+    records: [{ recordType: type, data }],
+  });
+}
+
+/**
  * Clear an NFC tag by writing an empty NDEF record.
  */
 export async function clearTag(): Promise<void> {

@@ -1,0 +1,6 @@
+.next/types/validator.ts(78,39): error TS2307: Cannot find module '../../app/page.js' or its corresponding type declarations.
+components/nfc/write-ui.tsx(11,26): error TS2307: Cannot find module '@/components/ui/textarea' or its corresponding type declarations.
+components/nfc/write-ui.tsx(54,9): error TS2322: Type '"tag_format"' is not assignable to type 'ActivityAction'.
+components/nfc/write-ui.tsx(111,16): error TS2304: Cannot find name 'PenSquare'.
+components/theme-toggle.tsx(20,28): error TS2322: Type '{ children: Element; asChild: true; }' is not assignable to type 'IntrinsicAttributes & Props<unknown>'.
+  Property 'asChild' does not exist on type 'IntrinsicAttributes & Props<unknown>'.

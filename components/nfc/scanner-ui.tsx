@@ -25,15 +25,15 @@ const statusConfig: Record<
     label: 'Ready to Scan',
     sublabel: 'Tap an NFC tag to your device to begin.',
     icon: Wifi,
-    iconClass: 'text-blue-400',
-    ringColor: 'border-blue-500/30',
+    iconClass: 'text-[hsl(var(--foreground))]',
+    ringColor: 'border-[hsl(var(--border))]',
   },
   scanning: {
     label: 'Hold Tag Near Device',
     sublabel: 'Keep the tag steady while we read it.',
     icon: Loader2,
-    iconClass: 'text-blue-400 animate-spin',
-    ringColor: 'border-blue-500',
+    iconClass: 'text-[hsl(var(--foreground))] animate-spin',
+    ringColor: 'border-[hsl(var(--primary))]',
   },
   success: {
     label: 'Tag Detected!',
@@ -189,9 +189,9 @@ export function ScannerUI({ userId, userEmail, userName }: ScannerUIProps) {
         {/* Animated rings when scanning */}
         {status === 'scanning' && (
           <>
-            <span className="absolute w-32 h-32 rounded-full border-2 border-blue-500/50 animate-nfc-ring" />
-            <span className="absolute w-32 h-32 rounded-full border-2 border-blue-500/50 animate-nfc-ring-2" />
-            <span className="absolute w-32 h-32 rounded-full border-2 border-blue-500/50 animate-nfc-ring-3" />
+            <span className="absolute w-32 h-32 rounded-full border-2 border-[hsl(var(--primary))]/30 animate-nfc-ring" />
+            <span className="absolute w-32 h-32 rounded-full border-2 border-[hsl(var(--primary))]/20 animate-nfc-ring-2" />
+            <span className="absolute w-32 h-32 rounded-full border-2 border-[hsl(var(--primary))]/10 animate-nfc-ring-3" />
           </>
         )}
 
@@ -248,7 +248,7 @@ export function ScannerUI({ userId, userEmail, userName }: ScannerUIProps) {
           {(status === 'idle' || status === 'error') && (
             <Button
               onClick={startScan}
-              className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 px-8"
+              className="bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90 shadow-sm px-8"
             >
               <Wifi className="w-4 h-4 mr-2" />
               Start Scanning
