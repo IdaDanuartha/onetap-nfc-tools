@@ -50,5 +50,6 @@ export type NfcServiceStatus =
   | 'idle'
   | 'scanning'
   | 'success'
+  | 'scanned'
   | 'error'
   | 'unsupported';

@@ -31,6 +31,15 @@ export default async function DashboardPage() {
       .limit(20),
   ]);
 
+  // Approximate active admins by counting unique recent actors in activity logs
+  const { data: recentActors } = await supabase
+    .from('activity_logs')
+    .select('performed_by')
+    .limit(100);
+  const activeAdmins = recentActors
+    ? new Set(recentActors.map((a) => a.performed_by).filter(Boolean)).size
+    : 0;
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page header */}
@@ -44,7 +53,7 @@ export default async function DashboardPage() {
 
         <Link
           href="/scanner"
-          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-md shadow-blue-500/20 transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/30"
+          className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2.5 rounded-lg shadow-sm transition-all duration-200"
         >
           <ScanLine className="w-4 h-4" />
           <span className="hidden sm:inline">Scan Tag</span>
@@ -75,10 +84,10 @@ export default async function DashboardPage() {
           accent="amber"
         />
         <StatsCard
-          label="Admins"
-          value="—"
+          label="Active Admins"
+          value={activeAdmins || 1}
           icon={Users}
-          description="Managed via Supabase"
+          description="Based on recent logs"
           accent="default"
         />
       </div>
@@ -92,7 +101,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/tags"
-            className="text-xs text-blue-500 hover:text-blue-400 font-medium transition-colors"
+            className="text-xs text-primary hover:underline font-medium transition-colors cursor-pointer"
           >
             View tags →
           </Link>
