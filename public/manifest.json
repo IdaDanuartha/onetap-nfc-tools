@@ -1,0 +1,39 @@
+{
+  "name": "OneTap NFC Tools",
+  "short_name": "OneTap NFC",
+  "description": "PWA Admin Dashboard for managing physical NFC tags",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#0047FF",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "business"],
+  "shortcuts": [
+    {
+      "name": "Scanner",
+      "short_name": "Scan",
+      "url": "/scanner",
+      "description": "Open NFC Scanner"
+    },
+    {
+      "name": "Tags",
+      "short_name": "Tags",
+      "url": "/tags",
+      "description": "View all NFC tags"
+    }
+  ]
+}
