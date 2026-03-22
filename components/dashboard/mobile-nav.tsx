@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Wifi, Tags, PenSquare } from 'lucide-react';
+import { LayoutDashboard, Wifi, Tags, PenSquare, Menu, LogOut, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/scanner', label: 'Scan', icon: Wifi },
+  { href: '/', label: 'Dash', icon: LayoutDashboard },
+  { href: '/read', label: 'Read', icon: BookOpen },
   { href: '/write', label: 'Write', icon: PenSquare },
   { href: '/tags', label: 'Tags', icon: Tags },
 ];

@@ -43,7 +43,22 @@ export interface AdminUser {
 export type NfcReadResult = {
   serialNumber: string;
   message: string | null;
-  records: string[];
+  records: string[]; // Simplistic string records
+};
+
+export type DetailedNfcRecord = {
+  recordType: string;
+  mediaType?: string;
+  id?: string;
+  data: string;
+  byteLength: number;
+};
+
+export type DetailedNfcReadResult = {
+  serialNumber: string;
+  recordCount: number;
+  messageBytes: number;
+  records: DetailedNfcRecord[];
 };
 
 export type NfcServiceStatus =

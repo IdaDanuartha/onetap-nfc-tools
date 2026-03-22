@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { isNFCSupported, writeCustomRecord } from '@/lib/nfc-service';
 import { logActivity } from '@/lib/activity-logger';
 import { toast } from 'sonner';
-import { Wifi, Link as LinkIcon, Type, Loader2, AlertCircle, PenSquare } from 'lucide-react';
+import { Wifi, Link as LinkIcon, Type, Loader2, AlertCircle, PenSquare, Phone, MessageSquare, Mail, Database, RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,44 +19,74 @@ interface WriteUIProps {
   userName: string;
 }
 
-type RecordType = 'url' | 'text';
+type RecordType = 'url' | 'text' | 'phone' | 'sms' | 'email' | 'database';
 
 export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   const [isSupported, setIsSupported] = useState(true);
   const [recordType, setRecordType] = useState<RecordType>('url');
   const [data, setData] = useState('');
   const [status, setStatus] = useState<'idle' | 'waiting_for_tap'>('idle');
+  
+  // Database mode state
+  const [dbTags, setDbTags] = useState<any[]>([]);
+  const [selectedDbTag, setSelectedDbTag] = useState('');
 
   useEffect(() => {
     setIsSupported(isNFCSupported());
   }, []);
 
+  // Fetch db tags when database mode is selected
+  useEffect(() => {
+    if (recordType === 'database' && dbTags.length === 0) {
+      const supabase = createClient();
+      supabase.from('nfc_tags').select('id, label, serial_number, payload_data, status').eq('status', 'active').then(({data}) => {
+        setDbTags(data || []);
+      });
+    }
+  }, [recordType, dbTags.length]);
+
   async function handleWriteStart() {
     if (!data.trim()) {
-      toast.error('Please enter data to write.');
+      toast.error('Please enter data or select a tag to write.');
       return;
     }
     
-    // Auto-fix URLs
+    // Auto-fix URLs and formats
     let finalData = data;
+    let nfcRecordType: 'url' | 'text' | 'json' = 'url';
+
     if (recordType === 'url') {
       if (!finalData.startsWith('http://') && !finalData.startsWith('https://')) {
         finalData = `https://${finalData}`;
       }
+    } else if (recordType === 'text') {
+      nfcRecordType = 'text';
+    } else if (recordType === 'phone') {
+      finalData = `tel:${finalData.replace(/[^0-9+]/g, '')}`;
+    } else if (recordType === 'sms') {
+      finalData = `sms:${finalData.replace(/[^0-9+]/g, '')}`;
+    } else if (recordType === 'email') {
+      finalData = `mailto:${finalData.trim()}`;
+    } else if (recordType === 'database') {
+      nfcRecordType = 'json'; // Database sync writes as application/json
     }
 
     setStatus('waiting_for_tap');
     toast.info('Hold the NFC tag near your device...');
 
     try {
-      await writeCustomRecord(recordType, finalData);
+      await writeCustomRecord(nfcRecordType, finalData);
       
+      const dbTagMetadata = recordType === 'database' 
+         ? { synced_tag_id: selectedDbTag, action_detail: 'Synced Supabase JSON to Tag' } 
+         : { action_detail: 'Wrote generic payload' };
+
       await logActivity({
-        action: 'tag_format', // using existing format
-        // No tag ID since it's a generic tag
+        action: 'tag_format', 
+        tagId: selectedDbTag || null,
         performedBy: userId,
         metadata: {
-          action_detail: 'Wrote generic payload',
+          ...dbTagMetadata,
           record_type: recordType,
           preview: finalData.substring(0, 30),
           performer_email: userEmail,
@@ -85,6 +116,112 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     );
   }
 
+  const renderInputFields = () => {
+    switch(recordType) {
+      case 'database':
+        return (
+          <div className="space-y-3">
+             <select 
+                title="Database Tags"
+                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-sm transition-all"
+                value={selectedDbTag} 
+                onChange={(e) => {
+                  setSelectedDbTag(e.target.value);
+                  const tag = dbTags.find(t => t.id === e.target.value);
+                  if (tag) {
+                     setData(JSON.stringify(tag.payload_data));
+                  }
+                }}
+             >
+                <option value="" disabled>Select an active managed tag...</option>
+                {dbTags.map((tag) => (
+                  <option key={tag.id} value={tag.id}>{tag.label} ({tag.serial_number})</option>
+                ))}
+             </select>
+             {selectedDbTag && data && (
+               <div className="space-y-1.5 mt-2">
+                 <p className="text-[10px] uppercase font-semibold text-muted-foreground flex items-center gap-1.5"><RefreshCcw className="w-3 h-3" /> Sync Payload Preview</p>
+                 <pre className="text-[11px] bg-card border border-border/40 p-3 rounded-md max-h-36 overflow-y-auto font-mono text-foreground/80">
+                   {JSON.stringify(JSON.parse(data), null, 2)}
+                 </pre>
+               </div>
+             )}
+          </div>
+        );
+      case 'url':
+        return (
+          <div className="relative">
+            <Input 
+              placeholder="example.com"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              className="pl-9 h-11"
+              type="url"
+            />
+            <LinkIcon className="absolute left-3 top-3.5 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+          </div>
+        );
+      case 'phone':
+        return (
+          <div className="relative">
+            <Input 
+              placeholder="+628123456789"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              className="pl-9 h-11"
+              type="tel"
+            />
+            <Phone className="absolute left-3 top-3.5 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+          </div>
+        );
+      case 'sms':
+        return (
+           <div className="relative">
+            <Input 
+              placeholder="+628123456789 (Recipient Number)"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              className="pl-9 h-11"
+              type="tel"
+            />
+            <MessageSquare className="absolute left-3 top-3.5 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+          </div>
+        );
+      case 'email':
+        return (
+           <div className="relative">
+            <Input 
+              placeholder="hello@example.com"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              className="pl-9 h-11"
+              type="email"
+            />
+            <Mail className="absolute left-3 top-3.5 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+          </div>
+        );
+      case 'text':
+      default:
+        return (
+          <Textarea 
+            placeholder="Enter standard text to write to tag..."
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+            className="min-h-[100px] resize-none"
+          />
+        );
+    }
+  };
+
+  const types = [
+    { id: 'database', label: 'From Database', icon: Database },
+    { id: 'url', label: 'URL / Link', icon: LinkIcon },
+    { id: 'text', label: 'Plain Text', icon: Type },
+    { id: 'phone', label: 'Phone Call', icon: Phone },
+    { id: 'sms', label: 'Send SMS', icon: MessageSquare },
+    { id: 'email', label: 'Send Email', icon: Mail },
+  ] as const;
+
   return (
     <div className="space-y-6">
       {status === 'waiting_for_tap' ? (
@@ -109,67 +246,43 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
           <CardHeader>
             <CardTitle className="text-xl flex items-center gap-2">
               <PenSquare className="w-5 h-5 text-[hsl(var(--primary))]" />
-              Write Data
+              Write Options
             </CardTitle>
-            <CardDescription>Format a blank tag with standard NDEF text or URL.</CardDescription>
+            <CardDescription>Format blank tags manually or clone sync payloads directly from your managed database.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-6">
             {/* Type selector */}
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setRecordType('url')}
-                className={cn(
-                  "flex-1 flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all",
-                  recordType === 'url' 
-                    ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]" 
-                    : "border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--muted-foreground))]/40"
-                )}
-              >
-                <LinkIcon className="w-6 h-6" />
-                <span className="text-sm font-medium tracking-wide">URL / Link</span>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setRecordType('text')}
-                className={cn(
-                  "flex-1 flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all",
-                  recordType === 'text' 
-                    ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]" 
-                    : "border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--muted-foreground))]/40"
-                )}
-              >
-                <Type className="w-6 h-6" />
-                <span className="text-sm font-medium tracking-wide">Plain Text</span>
-              </button>
+            <div className="grid grid-cols-3 gap-2 md:gap-3">
+              {types.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    setRecordType(t.id);
+                    setData('');
+                    setSelectedDbTag('');
+                  }}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all h-24",
+                    recordType === t.id 
+                      ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))] shadow-sm" 
+                      : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))]/40 hover:bg-[hsl(var(--muted))]/50"
+                  )}
+                >
+                  <t.icon className={cn("w-5 h-5 md:w-6 md:h-6", recordType === t.id && t.id === 'database' && "text-emerald-500")} />
+                  <span className="text-[10px] md:text-[11px] font-semibold tracking-wide uppercase text-center">{t.label}</span>
+                </button>
+              ))}
             </div>
 
             {/* Input field */}
-            <div className="space-y-2 pt-2">
-              <Label>{recordType === 'url' ? 'Web Address' : 'Content'}</Label>
-              {recordType === 'url' ? (
-                <div className="relative">
-                  <Input 
-                    placeholder="https://example.com"
-                    value={data}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData(e.target.value)}
-                    className="pl-9"
-                  />
-                  <LinkIcon className="absolute left-3 top-2.5 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                </div>
-              ) : (
-                <Textarea 
-                  placeholder="Enter standard text to write to tag..."
-                  value={data}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData(e.target.value)}
-                  className="min-h-[100px] resize-none"
-                />
-              )}
+            <div className="space-y-3 pt-2 bg-[hsl(var(--muted))]/30 p-4 rounded-xl border border-[hsl(var(--border))]/50">
+              <Label className="text-[hsl(var(--foreground))] text-[13px] font-semibold">{recordType === 'database' ? 'Database Source' : 'Data Payload'}</Label>
+              {renderInputFields()}
             </div>
 
             <Button 
-              className="w-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm"
+              className="w-full h-11 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm text-sm"
               size="lg"
               onClick={handleWriteStart}
               disabled={!data.trim()}

@@ -11,6 +11,8 @@ import {
   PenSquare,
   LogOut,
   ChevronRight,
+  ScanLine,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -20,7 +22,8 @@ import { ThemeToggle } from '@/components/theme-toggle';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/scanner', label: 'Scanner', icon: Wifi },
+  { href: '/read', label: 'Read', icon: ScanLine },
+  { href: '/scanner', label: 'Verify', icon: ShieldCheck },
   { href: '/write', label: 'Write', icon: PenSquare },
   { href: '/tags', label: 'Tags', icon: Tags },
 ];
