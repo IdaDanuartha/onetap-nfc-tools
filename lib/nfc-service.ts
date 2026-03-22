@@ -32,7 +32,7 @@ export async function readTag(
       const records: string[] = [];
       let primaryMessage: string | null = null;
 
-      for (const record of message.records) {
+      for (const record of message?.records || []) {
         if (record.recordType === 'text' && record.data) {
           const text = decoder.decode(record.data);
           records.push(text);

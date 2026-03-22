@@ -49,7 +49,7 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
             .from('nfc_tags')
             .select('*')
             .eq('serial_number', data.serialNumber)
-            .single();
+            .maybeSingle();
             
           setDbRecord(dbInstance || null);
 

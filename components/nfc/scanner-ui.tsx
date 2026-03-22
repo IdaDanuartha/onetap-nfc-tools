@@ -100,7 +100,7 @@ export function ScannerUI({ userId, userEmail, userName }: ScannerUIProps) {
             .from('nfc_tags')
             .select('id, label, status')
             .eq('serial_number', result.serialNumber)
-            .single();
+            .maybeSingle();
 
           setScanResult(result);
 
