@@ -14,9 +14,11 @@ import { cn } from '@/lib/utils';
 
 interface ReadUIProps {
   userId: string;
+  userEmail: string;
+  userName: string;
 }
 
-export function ReadUI({ userId }: ReadUIProps) {
+export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
   const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'unsupported' | 'error'>('idle');
   const [result, setResult] = useState<DetailedNfcReadResult | null>(null);
   const [dbRecord, setDbRecord] = useState<any | null>(null);
@@ -68,6 +70,8 @@ export function ReadUI({ userId }: ReadUIProps) {
               serialNumber: data.serialNumber,
               bytes: data.messageBytes,
               recordCount: data.recordCount,
+              performer_email: userEmail,
+              performer_name: userName,
             }
           });
           toast.success('Tag read successfully');
@@ -172,7 +176,7 @@ export function ReadUI({ userId }: ReadUIProps) {
                    </div>
                    <div>
                      <p className="text-[10px] text-muted-foreground font-medium uppercase mb-0.5 flex gap-1 items-center"><Wifi className="w-3 h-3"/> Last Scanned</p>
-                     <p className="text-sm font-medium">{new Date(dbRecord.last_scanned_at || dbRecord.registered_at).toLocaleDateString()}</p>
+                     <p className="text-sm font-medium">{new Date(dbRecord.last_scanned_at || dbRecord.created_at || new Date()).toLocaleString()}</p>
                    </div>
                 </div>
 
