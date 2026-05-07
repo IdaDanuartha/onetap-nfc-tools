@@ -32,15 +32,15 @@ export default function LoginPage() {
     } else {
       toast.success('Signed in successfully');
       router.push('/');
-      router.refresh(); 
+      router.refresh();
     }
   }
 
   return (
     <Card className="w-full bg-card border border-border/60 shadow-xl shadow-black/5 dark:shadow-black/20 animate-in fade-in zoom-in duration-500 rounded-2xl overflow-hidden">
       <CardHeader className="space-y-4 pb-6 pt-8 bg-card relative z-10">
-        <div className="w-14 h-14 rounded-2xl bg-muted border border-border/50 flex items-center justify-center mx-auto transition-transform hover:scale-105">
-          <Fingerprint className="w-7 h-7 text-foreground" strokeWidth={1.5} />
+        <div className="mx-auto transition-transform hover:scale-105">
+          <img src="/images/logo_simple.png" alt="OneTap NFC Logo" className="w-16 h-16 rounded-2xl shadow-sm" />
         </div>
         <div className="text-center space-y-1.5">
           <CardTitle className="text-2xl font-bold tracking-tight text-foreground">Admin Access</CardTitle>
@@ -68,7 +68,7 @@ export default function LoginPage() {
               />
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-semibold text-foreground" htmlFor="password">Password</Label>
@@ -90,17 +90,17 @@ export default function LoginPage() {
         </CardContent>
 
         <CardFooter className="flex flex-col space-y-4 px-8 pb-8 pt-4 mt-5">
-          <Button 
-            className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-medium shadow-sm transition-all" 
-            type="submit" 
+          <Button
+            className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-medium shadow-sm transition-all"
+            type="submit"
             disabled={isLoading}
           >
             {isLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
-            Sign in strictly
+            Sign in
           </Button>
-          
+
           <p className="text-[11px] text-center text-muted-foreground/80 font-medium uppercase tracking-widest mt-4">
             Secured System Environment
           </p>

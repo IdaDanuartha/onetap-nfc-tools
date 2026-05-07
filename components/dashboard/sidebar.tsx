@@ -7,12 +7,12 @@ import { toast } from 'sonner';
 import {
   LayoutDashboard,
   Wifi,
-  Tags,
   PenSquare,
   LogOut,
   ChevronRight,
   ScanLine,
   ShieldCheck,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -25,7 +25,7 @@ const navItems = [
   { href: '/read', label: 'Read', icon: ScanLine },
   { href: '/scanner', label: 'Verify', icon: ShieldCheck },
   { href: '/write', label: 'Write', icon: PenSquare },
-  { href: '/tags', label: 'Tags', icon: Tags },
+  { href: '/attendance', label: 'Attendance', icon: ClipboardList },
 ];
 
 interface SidebarProps {
@@ -52,12 +52,12 @@ export function Sidebar({ user }: SidebarProps) {
     <aside className="hidden md:flex flex-col w-60 shrink-0 bg-[hsl(var(--sidebar))] text-[hsl(var(--sidebar-foreground))] min-h-screen">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-[hsl(var(--sidebar-border))]">
-        <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center shadow-sm">
-          <Wifi className="w-4 h-4 text-[hsl(var(--primary-foreground))]" />
-        </div>
-        <div>
-          <p className="font-semibold text-sm text-[hsl(var(--sidebar-foreground))] leading-none">OneTap NFC</p>
-          <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5">Admin Dashboard</p>
+        <div className="flex items-center gap-3">
+          <img src="/images/logo_simple.png" alt="OneTap NFC" className="w-8 h-8 rounded-lg" />
+          <div>
+            <p className="font-semibold text-sm text-[hsl(var(--sidebar-foreground))] leading-none">OneTap NFC</p>
+            <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5">Admin Dashboard</p>
+          </div>
         </div>
       </div>
 

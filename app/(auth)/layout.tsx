@@ -11,8 +11,8 @@ export default function AuthLayout({
       {/* Absolute Header with Logo & Theme Toggle */}
       <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-            <Wifi className="w-5 h-5 text-primary-foreground" />
+          <div className="flex items-center justify-center shadow-lg shadow-primary/20">
+            <img src="/images/logo_simple.png" alt="OneTap NFC Logo" className="w-16 h-16 rounded-2xl shadow-sm" />
           </div>
           <span className="text-foreground font-bold tracking-tight text-lg">OneTap NFC</span>
         </div>

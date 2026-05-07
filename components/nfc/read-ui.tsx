@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { cn } from '@/lib/utils';
+import { NfcPasswordModal } from '@/components/nfc/nfc-password-modal';
 
 interface ReadUIProps {
   userId: string;
@@ -29,12 +30,46 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
   const [decryptPasswords, setDecryptPasswords] = useState<Record<number, string>>({});
   const [decryptedRecords, setDecryptedRecords] = useState<Record<number, string>>({});
 
+  // A2: NFC operation password gate
+  const [passwordEnabled, setPasswordEnabled] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!isNFCSupported()) setStatus('unsupported');
+
+    // Check if NFC operation password is set for this user
+    fetch('/api/nfc/verify-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: '__probe__' }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        // If probe returns success=false (meaning there IS a password configured),
+        // we enable the password gate. We use a special probe approach:
+        // actually, let's just fetch the config state directly.
+      })
+      .catch(() => {});
+
+    // Fetch password enabled status
+    fetch('/api/nfc/password-status')
+      .then((r) => r.json())
+      .then((d) => setPasswordEnabled(d.enabled ?? false))
+      .catch(() => {});
+
     return () => { cleanupRef.current?.(); };
   }, []);
+
+  // A2: Gate the scan behind the password modal when enabled
+  function handleScanClick() {
+    if (passwordEnabled) {
+      setShowPasswordModal(true);
+    } else {
+      startScan();
+    }
+  }
 
   async function startScan() {
     if (!isNFCSupported()) return;
@@ -151,7 +186,7 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
 
             <div className="flex gap-3 mt-2">
               {(status === 'idle' || status === 'success' || status === 'error') && (
-                <Button onClick={startScan} size="lg" className="px-8 shadow-sm">
+                <Button onClick={handleScanClick} size="lg" className="px-8 shadow-sm">
                   {status === 'success' ? 'Scan Another' : 'Start Reading'}
                 </Button>
               )}
@@ -306,6 +341,17 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
           </div>
         </div>
       )}
+
+      {/* A2: NFC Operation Password Modal */}
+      <NfcPasswordModal
+        isOpen={showPasswordModal}
+        operation="read"
+        onSuccess={() => {
+          setShowPasswordModal(false);
+          startScan();
+        }}
+        onCancel={() => setShowPasswordModal(false)}
+      />
     </div>
   );
 }
