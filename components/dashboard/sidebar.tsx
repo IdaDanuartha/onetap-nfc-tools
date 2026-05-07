@@ -13,6 +13,7 @@ import {
   ScanLine,
   ShieldCheck,
   ClipboardList,
+  Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/read', label: 'Read', icon: ScanLine },
   { href: '/scanner', label: 'Verify', icon: ShieldCheck },
+  { href: '/tags', label: 'Tags', icon: Layers },
   { href: '/write', label: 'Write', icon: PenSquare },
   { href: '/attendance', label: 'Attendance', icon: ClipboardList },
 ];

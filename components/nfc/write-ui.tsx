@@ -521,7 +521,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
           setShowPasswordModal(false);
           initiateWrite();
         }}
-        onCancel={() => setShowPasswordModal(false)}
+        onClose={() => setShowPasswordModal(false)}
       />
     </div>
   );

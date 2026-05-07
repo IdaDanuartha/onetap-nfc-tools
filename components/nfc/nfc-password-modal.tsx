@@ -11,7 +11,7 @@ interface NfcPasswordModalProps {
   isOpen: boolean;
   operation: 'read' | 'write';
   onSuccess: () => void;
-  onCancel: () => void;
+  onClose: () => void;
 }
 
 /**
@@ -23,7 +23,7 @@ export function NfcPasswordModal({
   isOpen,
   operation,
   onSuccess,
-  onCancel,
+  onClose,
 }: NfcPasswordModalProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -72,7 +72,7 @@ export function NfcPasswordModal({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSubmit();
-    if (e.key === 'Escape') onCancel();
+    if (e.key === 'Escape') onClose();
   };
 
   if (!isOpen) return null;
@@ -83,12 +83,12 @@ export function NfcPasswordModal({
     // Backdrop
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="relative bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 animate-in zoom-in-95 duration-200">
         {/* Close button */}
         <button
-          onClick={onCancel}
+          onClick={onClose}
           className="absolute top-4 right-4 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
           aria-label="Tutup"
         >
@@ -136,7 +136,7 @@ export function NfcPasswordModal({
           <Button
             variant="outline"
             className="flex-1"
-            onClick={onCancel}
+            onClick={onClose}
             disabled={loading}
           >
             Batal

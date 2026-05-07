@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, PenSquare, ClipboardList, BookOpen } from 'lucide-react';
+import { LayoutDashboard, PenSquare, ClipboardList, BookOpen, Layers, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/', label: 'Dash', icon: LayoutDashboard },
   { href: '/read', label: 'Read', icon: BookOpen },
+  { href: '/scanner', label: 'Verify', icon: ShieldCheck },
+  { href: '/tags', label: 'Tags', icon: Layers },
   { href: '/write', label: 'Write', icon: PenSquare },
   { href: '/attendance', label: 'Attend', icon: ClipboardList },
 ];

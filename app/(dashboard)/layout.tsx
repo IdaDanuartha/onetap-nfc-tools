@@ -36,11 +36,7 @@ export default async function DashboardLayout({
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--sidebar))]">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center shadow-sm">
-              <svg className="w-4 h-4 text-[hsl(var(--primary-foreground))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.25 11.25a4.25 4.25 0 014.25-4.25M5 11.25a7.25 7.25 0 017.25-7.25M2 11.25A10.25 10.25 0 0112.25 1" />
-              </svg>
-            </div>
+            <img src="/images/logo_simple.png" alt="OneTap NFC" className="w-8 h-8 rounded-lg" />
             <span className="text-[hsl(var(--foreground))] font-semibold text-sm">OneTap NFC</span>
           </div>
           <ThemeToggle />
