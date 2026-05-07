@@ -30,6 +30,23 @@ export default function LoginPage() {
       toast.error(error.message);
       setIsLoading(false);
     } else {
+      // Verify if the user has an admin role
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const { data: profile } = await supabase
+          .from('users_profile')
+          .select('role')
+          .eq('id', authUser.id)
+          .single();
+        
+        if (profile?.role !== 'admin') {
+          await supabase.auth.signOut();
+          toast.error("Access denied. This dashboard is for Admins only.");
+          setIsLoading(false);
+          return;
+        }
+      }
+      
       toast.success('Signed in successfully');
       router.push('/');
       router.refresh();
