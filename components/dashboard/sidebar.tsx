@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   ClipboardList,
   Layers,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -23,6 +24,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/users', label: 'Users', icon: Users },
   { href: '/read', label: 'Read', icon: ScanLine },
   { href: '/scanner', label: 'Verify', icon: ShieldCheck },
   { href: '/tags', label: 'Tags', icon: Layers },
