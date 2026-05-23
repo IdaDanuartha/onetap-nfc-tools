@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
     if (updateError) {
       console.error('[Update User Plan] DB Update Error:', updateError);
-      return NextResponse.json({ error: 'Gagal memperbarui plan pengguna di database' }, { status: 500 });
+      return NextResponse.json({ error: `Gagal memperbarui plan pengguna di database: ${updateError.message} (${updateError.code || 'UNKNOWN'})` }, { status: 500 });
     }
 
     return NextResponse.json({
