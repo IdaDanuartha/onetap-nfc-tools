@@ -147,10 +147,9 @@ export function UsersManager({ initialUsers }: { initialUsers: UserProfile[] }) 
 
   // Stat calculations
   const totalUsersCount = users.length;
-  const premiumCount = users.filter(u => u.plan !== 'free').length;
+  const premiumCount = users.filter(u => u.plan === 'professional' || u.plan === 'education').length;
   const professionalCount = users.filter(u => u.plan === 'professional').length;
   const educationCount = users.filter(u => u.plan === 'education').length;
-  const starterCount = users.filter(u => u.plan === 'starter').length;
 
   return (
     <div className="space-y-6">
@@ -166,7 +165,7 @@ export function UsersManager({ initialUsers }: { initialUsers: UserProfile[] }) 
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-none shadow-md bg-card/40 backdrop-blur-sm rounded-2xl">
           <CardContent className="p-4 flex flex-col justify-center items-center text-center">
             <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Total Users</p>
@@ -183,17 +182,11 @@ export function UsersManager({ initialUsers }: { initialUsers: UserProfile[] }) 
         </Card>
         <Card className="border-none shadow-md bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
           <CardContent className="p-4 flex flex-col justify-center items-center text-center">
-            <p className="text-[10px] uppercase font-black text-indigo-500 tracking-widest">EDUCATION</p>
+            <p className="text-[10px] uppercase font-black text-indigo-500 tracking-widest font-extrabold">EDU</p>
             <p className="text-2xl font-black text-indigo-500 mt-1">{educationCount}</p>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-md bg-blue-500/5 border border-blue-500/10 rounded-2xl">
-          <CardContent className="p-4 flex flex-col justify-center items-center text-center">
-            <p className="text-[10px] uppercase font-black text-blue-500 tracking-widest">STARTER</p>
-            <p className="text-2xl font-black text-blue-500 mt-1">{starterCount}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-md bg-emerald-500/5 border border-emerald-500/10 rounded-2xl col-span-2 md:col-span-1">
+        <Card className="border-none shadow-md bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
           <CardContent className="p-4 flex flex-col justify-center items-center text-center">
             <p className="text-[10px] uppercase font-black text-emerald-600 tracking-widest">Premium Active</p>
             <p className="text-2xl font-black text-emerald-600 mt-1">{premiumCount}</p>
@@ -230,17 +223,14 @@ export function UsersManager({ initialUsers }: { initialUsers: UserProfile[] }) 
 
             // Plan style details
             let planBadgeClass = 'bg-muted/40 text-muted-foreground border-transparent';
-            let planText = 'Free';
+            let planText = 'FREE';
             
-            if (user.plan === 'starter') {
-              planBadgeClass = 'bg-blue-500/10 text-blue-500 border-blue-500/20';
-              planText = 'Starter';
-            } else if (user.plan === 'professional') {
+            if (user.plan === 'professional') {
               planBadgeClass = 'bg-gradient-to-r from-[#FF5FA2]/15 to-[#E8457E]/15 text-[#FF5FA2] border-[#FF5FA2]/20 font-black';
-              planText = 'Professional';
+              planText = 'PRO';
             } else if (user.plan === 'education') {
               planBadgeClass = 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20';
-              planText = 'Education';
+              planText = 'EDU';
             }
 
             // Expiry details
@@ -389,12 +379,11 @@ export function UsersManager({ initialUsers }: { initialUsers: UserProfile[] }) 
                 {/* Plan Selection */}
                 <div className="space-y-3">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Pilih Subscription Plan</Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     {[
-                      { id: 'free', label: 'FREE PLAN', desc: 'Akses Standar', activeClass: 'border-muted-foreground/60 bg-muted/10 text-muted-foreground' },
-                      { id: 'starter', label: 'STARTER', desc: 'Akses Dasar', activeClass: 'border-blue-500 bg-blue-500/5 text-blue-500' },
-                      { id: 'professional', label: 'PROFESSIONAL', desc: 'Fitur Unggulan', activeClass: 'border-[#FF5FA2] bg-[#FF5FA2]/5 text-[#FF5FA2]' },
-                      { id: 'education', label: 'EDUCATION', desc: 'Siswa / Kampus', activeClass: 'border-indigo-500 bg-indigo-500/5 text-indigo-500' },
+                      { id: 'free', label: 'FREE', desc: 'Akses Standar', activeClass: 'border-muted-foreground/60 bg-muted/10 text-muted-foreground' },
+                      { id: 'professional', label: 'PRO', desc: 'Fitur Unggulan', activeClass: 'border-[#FF5FA2] bg-[#FF5FA2]/5 text-[#FF5FA2]' },
+                      { id: 'education', label: 'EDU', desc: 'Siswa / Kampus', activeClass: 'border-indigo-500 bg-indigo-500/5 text-indigo-500' },
                     ].map((p) => (
                       <button
                         key={p.id}
@@ -409,14 +398,14 @@ export function UsersManager({ initialUsers }: { initialUsers: UserProfile[] }) 
                           }
                         }}
                         className={cn(
-                          "flex flex-col items-start justify-center p-4 rounded-2xl border-2 transition-all gap-0.5 text-left",
+                          "flex flex-col items-start justify-center p-3 rounded-2xl border-2 transition-all gap-0.5 text-left",
                           plan === p.id 
                             ? p.activeClass 
                             : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/60"
                         )}
                       >
                         <span className="text-xs font-black uppercase tracking-tight">{p.label}</span>
-                        <span className="text-[10px] font-medium opacity-80">{p.desc}</span>
+                        <span className="text-[9px] font-medium opacity-80 leading-tight">{p.desc}</span>
                       </button>
                     ))}
                   </div>
