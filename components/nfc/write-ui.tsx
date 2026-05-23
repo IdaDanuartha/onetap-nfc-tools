@@ -128,6 +128,10 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   }
 
   function handleWriteClick() {
+    if (!isSupported) {
+      toast.error('Penulisan NFC hanya didukung di Google Chrome di Android.');
+      return;
+    }
     if (passwordEnabled) {
       setShowPasswordModal(true);
     } else {
@@ -273,19 +277,21 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     }
   }
 
-  if (!isSupported) {
-    return (
-      <Card className="border-amber-500/20 bg-amber-500/10">
-        <CardContent className="p-6 text-center space-y-3">
-          <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
-          <p className="text-sm font-medium text-amber-600">Web NFC hanya tersedia di Chrome Android.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-6">
+      {!isSupported && (
+        <Card className="border-amber-500/20 bg-amber-500/5">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-500">Mode Desktop Aktif</p>
+              <p className="text-xs text-amber-700/80 dark:text-amber-400/80 leading-relaxed">
+                Penulisan langsung ke tag NFC fisik hanya didukung di Chrome Android. Namun, Anda tetap bisa membuat keychain token, menyalin link, mengonfigurasi data, dan mengunduh QR Code di sini.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {status === 'waiting_for_tap' ? (
         <Card className={cn("border-2 animate-in zoom-in duration-300", recordType === 'erase' ? "border-destructive" : "border-primary shadow-[0_0_30px_rgba(var(--primary-rgb),0.2)]")}>
           <CardContent className="p-10 text-center space-y-6">

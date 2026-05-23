@@ -22,6 +22,7 @@ interface ReadUIProps {
 }
 
 export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
+  const [isSupported, setIsSupported] = useState(true);
   const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'unsupported' | 'error'>('idle');
   const [result, setResult] = useState<DetailedNfcReadResult | null>(null);
   const [dbRecord, setDbRecord] = useState<any | null>(null);
@@ -37,7 +38,7 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    if (!isNFCSupported()) setStatus('unsupported');
+    setIsSupported(isNFCSupported());
 
     // Fetch password enabled status
     fetch('/api/nfc/password-status')
@@ -104,6 +105,10 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
   }
 
   const handleScan = () => {
+    if (!isSupported) {
+      toast.error('Pembacaan NFC hanya didukung di Google Chrome di Android.');
+      return;
+    }
     if (passwordEnabled) {
       setShowPasswordModal(true);
     } else {
@@ -126,21 +131,21 @@ export function ReadUI({ userId, userEmail, userName }: ReadUIProps) {
     }
   };
 
-  if (status === 'unsupported') {
-    return (
-      <Card className="border-amber-500/20 bg-amber-500/10">
-         <CardContent className="p-6 text-center space-y-3">
-          <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
-          <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-            Web NFC is only available on Android Chrome. 
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-6">
+      {!isSupported && (
+        <Card className="border-amber-500/20 bg-amber-500/5 mb-6">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-500">Mode Desktop Aktif</p>
+              <p className="text-xs text-amber-700/80 dark:text-amber-400/80 leading-relaxed">
+                Pembacaan langsung chip NFC fisik hanya didukung di Chrome Android. Hubungkan atau buka halaman ini di perangkat Android Chrome untuk memindai tag secara langsung.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <NfcPasswordModal 
         isOpen={showPasswordModal}
         operation="read"
