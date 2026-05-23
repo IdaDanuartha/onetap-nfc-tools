@@ -69,7 +69,7 @@ export async function POST(req: Request) {
 
     if (insertError) {
       console.error('[Generate Keychain] Insert error:', insertError);
-      return NextResponse.json({ success: false, error: 'Gagal meregistrasi token baru ke database' }, { status: 500 });
+      return NextResponse.json({ success: false, error: `Gagal meregistrasi token baru ke database: ${insertError.message}` }, { status: 500 });
     }
 
     const baseUrl = 'https://onetap-charm.com';
