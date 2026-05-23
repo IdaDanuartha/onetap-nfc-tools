@@ -12,7 +12,7 @@ import {
   PenSquare, Phone, MessageSquare, Mail, Database, 
   RefreshCcw, Eraser, Lock, Unlock, Layers, 
   ClipboardList, User, GraduationCap, Send, Clock,
-  CheckCircle2
+  CheckCircle2, Copy, Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,7 @@ interface WriteUIProps {
   userName: string;
 }
 
-type RecordType = 'url' | 'text' | 'phone' | 'sms' | 'email' | 'database' | 'attendance' | 'erase';
+type RecordType = 'url' | 'text' | 'phone' | 'sms' | 'email' | 'database' | 'attendance' | 'erase' | 'keychain';
 
 export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   const [isSupported, setIsSupported] = useState(true);
@@ -68,6 +68,31 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   // AES Security mode state (Original feature)
   const [isSecure, setIsSecure] = useState(false);
   const [payloadPassword, setPayloadPassword] = useState('');
+
+  // Dynamic Keychain states
+  const [keychainToken, setKeychainToken] = useState('');
+  const [generatingToken, setGeneratingToken] = useState(false);
+
+  const handleGenerateKeychainToken = async () => {
+    setGeneratingToken(true);
+    try {
+      const res = await fetch('/api/keychains/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const result = await res.json();
+      if (result.success) {
+        setKeychainToken(result.token);
+        toast.success(`Token keychain unik berhasil dibuat: ${result.token}`);
+      } else {
+        throw new Error(result.error || 'Gagal generate token');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal membuat token unik.');
+    } finally {
+      setGeneratingToken(false);
+    }
+  };
 
   useEffect(() => {
     setIsSupported(isNFCSupported());
@@ -120,7 +145,12 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
 
   async function handleWriteStart() {
     // Validation
-    if (recordType === 'attendance') {
+    if (recordType === 'keychain') {
+      if (!keychainToken.trim()) {
+        toast.error('Token keychain belum diisi atau digenerate!');
+        return;
+      }
+    } else if (recordType === 'attendance') {
       if (!studentName || !className || !teacherPhone) {
         toast.error('Lengkapi data absensi!');
         return;
@@ -136,8 +166,13 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       let finalData = data;
       let nfcRecordType: 'url' | 'text' | 'json' | 'erase' = 'url';
 
+      // Keychain / Dynamic Redirect logic
+      if (recordType === 'keychain') {
+        finalData = `https://onetap-charm.com/r/${keychainToken.trim().toLowerCase()}`;
+        nfcRecordType = 'url';
+      }
       // A3: Link Protection Logic
-      if (useLinkProtection && recordType === 'url') {
+      else if (useLinkProtection && recordType === 'url') {
         const res = await fetch('/api/links/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -312,12 +347,14 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
               <Tabs defaultValue="standard" className="w-full" onValueChange={(v) => {
                 if (v === 'standard') setRecordType('url');
                 else if (v === 'attendance') setRecordType('attendance');
+                else if (v === 'keychain') setRecordType('keychain');
                 else if (v === 'database') setRecordType('database');
               }}>
-                <TabsList className="grid w-full grid-cols-3 h-12">
-                  <TabsTrigger value="standard" className="font-bold">Standard</TabsTrigger>
-                  <TabsTrigger value="attendance" className="font-bold">Absensi</TabsTrigger>
-                  <TabsTrigger value="database" className="font-bold">Sync DB</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-4 h-12">
+                  <TabsTrigger value="standard" className="font-bold text-xs">Standard</TabsTrigger>
+                  <TabsTrigger value="attendance" className="font-bold text-xs">Absensi</TabsTrigger>
+                  <TabsTrigger value="keychain" className="font-bold text-xs">Keychain</TabsTrigger>
+                  <TabsTrigger value="database" className="font-bold text-xs">Sync DB</TabsTrigger>
                 </TabsList>
 
                 {/* Standard Mode */}
@@ -442,6 +479,100 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                       className="text-xs font-mono bg-muted"
                       rows={4}
                     />
+                  </div>
+                </TabsContent>
+
+                {/* Keychain Mode */}
+                <TabsContent value="keychain" className="pt-4 space-y-4 animate-in slide-in-from-bottom-2 duration-300">
+                  <div className="p-5 rounded-2xl border-2 border-primary/20 bg-primary/5 space-y-5">
+                    <div className="flex items-center gap-3 text-primary">
+                      <PenSquare className="w-5 h-5" />
+                      <span className="font-black uppercase text-sm tracking-wide">Dynamic Redirect Generator</span>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Input + Generate Button Row */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Keychain Token</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Contoh: key-xyz123"
+                            value={keychainToken}
+                            onChange={(e) => setKeychainToken(e.target.value)}
+                            className="h-12 bg-white text-base font-bold font-mono tracking-wider focus-visible:ring-primary"
+                          />
+                          <Button
+                            type="button"
+                            onClick={handleGenerateKeychainToken}
+                            disabled={generatingToken}
+                            className="h-12 px-5 font-bold bg-primary text-white shrink-0 rounded-xl"
+                          >
+                            {generatingToken ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              'Generate Token'
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-medium">
+                          Token yang digenerate dijamin unik dan otomatis terdaftar di database untuk diklaim pelanggan nanti.
+                        </p>
+                      </div>
+
+                      {/* Display Redirect Link */}
+                      {keychainToken && (
+                        <div className="space-y-4 animate-in fade-in duration-300">
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Dynamic Redirect Link</Label>
+                            <div className="p-3 bg-muted rounded-xl flex items-center justify-between font-mono text-xs select-all border border-border/50">
+                              <span>https://onetap-charm.com/r/{keychainToken.trim().toLowerCase()}</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                type="button"
+                                className="h-7 w-7 p-0 rounded-md hover:bg-slate-200"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`https://onetap-charm.com/r/${keychainToken.trim().toLowerCase()}`);
+                                  toast.success('Link disalin!');
+                                }}
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Dynamic QR Code */}
+                          <div className="p-4 bg-white rounded-2xl border border-border/50 flex flex-col items-center justify-center space-y-4">
+                            <div className="text-xs font-bold text-muted-foreground">Generated Keychain QR Code</div>
+                            <div className="relative p-2 border-2 border-slate-100 rounded-xl bg-white shadow-sm">
+                              <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`https://onetap-charm.com/r/${keychainToken.trim().toLowerCase()}`)}`}
+                                alt="Keychain QR"
+                                className="w-44 h-44 object-contain"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="font-bold text-xs gap-1.5 h-9 rounded-lg"
+                              onClick={() => {
+                                const url = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(`https://onetap-charm.com/r/${keychainToken.trim().toLowerCase()}`)}`;
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.target = '_blank';
+                                link.download = `qr_${keychainToken}.png`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }}
+                            >
+                              <Download className="w-4 h-4" /> Download QR Code
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </TabsContent>
 
