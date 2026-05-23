@@ -12,7 +12,7 @@ import {
   PenSquare, Phone, MessageSquare, Mail, Database, 
   RefreshCcw, Eraser, Lock, Unlock, Layers, 
   ClipboardList, User, GraduationCap, Send, Clock,
-  CheckCircle2, Copy, Download
+  CheckCircle2, Copy, Download, AppWindow, ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,25 @@ interface WriteUIProps {
   userName: string;
 }
 
-type RecordType = 'url' | 'text' | 'phone' | 'sms' | 'email' | 'database' | 'attendance' | 'erase' | 'keychain';
+type RecordType = 'url' | 'text' | 'phone' | 'sms' | 'email' | 'database' | 'attendance' | 'erase' | 'keychain' | 'app';
+
+const POPULAR_APPS = [
+  { name: 'WhatsApp', package: 'com.whatsapp', iosUrl: 'https://wa.me' },
+  { name: 'Instagram', package: 'com.instagram.android', iosUrl: 'https://instagram.com' },
+  { name: 'TikTok', package: 'com.zhiliaoapp.musically', iosUrl: 'https://tiktok.com' },
+  { name: 'YouTube', package: 'com.google.android.youtube', iosUrl: 'https://youtube.com' },
+  { name: 'Facebook', package: 'com.facebook.katana', iosUrl: 'https://facebook.com' },
+  { name: 'Spotify', package: 'com.spotify.music', iosUrl: 'https://open.spotify.com' },
+  { name: 'Telegram', package: 'org.telegram.messenger', iosUrl: 'https://t.me' },
+  { name: 'Twitter / X', package: 'com.twitter.android', iosUrl: 'https://x.com' },
+  { name: 'DANA', package: 'id.dana', iosUrl: 'https://dana.id' },
+  { name: 'GoPay / Gojek', package: 'com.gojek.app', iosUrl: 'https://gojek.com' },
+  { name: 'OVO', package: 'id.ovo.android', iosUrl: 'https://ovo.id' },
+  { name: 'Shopee', package: 'com.shopee.id', iosUrl: 'https://shopee.co.id' },
+  { name: 'Mobile Legends', package: 'com.mobile.legends', iosUrl: 'https://www.mobilelegends.com' },
+  { name: 'Netflix', package: 'com.netflix.mediaclient', iosUrl: 'https://netflix.com' },
+  { name: 'Google Maps', package: 'com.google.android.apps.maps', iosUrl: 'https://maps.google.com' }
+];
 
 export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   const [isSupported, setIsSupported] = useState(true);
@@ -68,6 +86,12 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   // AES Security mode state (Original feature)
   const [isSecure, setIsSecure] = useState(false);
   const [payloadPassword, setPayloadPassword] = useState('');
+
+  // Open App states
+  const [appPackage, setAppPackage] = useState('com.whatsapp');
+  const [selectedApp, setSelectedApp] = useState('com.whatsapp');
+  const [iosUrl, setIosUrl] = useState('https://wa.me');
+  const [targetPlatform, setTargetPlatform] = useState<'both' | 'android' | 'ios'>('both');
 
   // Dynamic Keychain states
   const [keychainToken, setKeychainToken] = useState('');
@@ -169,6 +193,41 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     try {
       let finalData = data;
       let nfcRecordType: 'url' | 'text' | 'json' | 'erase' = 'url';
+
+      // Open App logic (multi-record)
+      if (recordType === 'app') {
+        if (!appPackage && (targetPlatform === 'android' || targetPlatform === 'both')) {
+          toast.error('Masukkan Android package name!');
+          setStatus('idle');
+          return;
+        }
+        if (!iosUrl && (targetPlatform === 'ios' || targetPlatform === 'both')) {
+          toast.error('Masukkan iOS URL!');
+          setStatus('idle');
+          return;
+        }
+        // Use writeCustomRecord abstraction won't work for multi-record; write directly
+        const ndef = new (window as any).NDEFReader();
+        const records: any[] = [];
+        if (targetPlatform === 'android') {
+          records.push({ recordType: 'android.com:pkg', data: new TextEncoder().encode(appPackage) });
+        } else if (targetPlatform === 'ios') {
+          records.push({ recordType: 'url', data: iosUrl });
+        } else {
+          records.push({ recordType: 'url', data: iosUrl });
+          records.push({ recordType: 'android.com:pkg', data: new TextEncoder().encode(appPackage) });
+        }
+        await ndef.write({ records });
+        toast.success('Berhasil menulis Open App ke NFC!');
+        setStatus('idle');
+        await logActivity({
+          action: 'tag_written',
+          tagId: null,
+          performedBy: userId,
+          metadata: { record_type: 'app', android: appPackage, ios: iosUrl, platform: targetPlatform }
+        });
+        return;
+      }
 
       // Keychain / Dynamic Redirect logic
       if (recordType === 'keychain') {
@@ -372,6 +431,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                       { id: 'phone', icon: Phone, label: 'Telp' },
                       { id: 'sms', icon: MessageSquare, label: 'SMS' },
                       { id: 'email', icon: Mail, label: 'Mail' },
+                      { id: 'app', icon: AppWindow, label: 'Open App' },
                       { id: 'erase', icon: Eraser, label: 'Hapus' },
                     ].map((t) => (
                       <button
@@ -389,6 +449,95 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                   </div>
 
                   <div className="space-y-4">
+                    {recordType === 'app' && (
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 block">Platform Target</Label>
+                          <div className="flex bg-muted border border-border rounded-xl p-1 w-full">
+                            {[
+                              { id: 'both', label: 'Semua (Android & iOS)' },
+                              { id: 'android', label: 'Android' },
+                              { id: 'ios', label: 'iOS (Apple)' }
+                            ].map((platform) => (
+                              <button
+                                key={platform.id}
+                                type="button"
+                                onClick={() => setTargetPlatform(platform.id as any)}
+                                className={cn(
+                                  "flex-1 py-2 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider",
+                                  targetPlatform === platform.id
+                                    ? 'bg-background text-primary shadow-sm border border-border'
+                                    : 'text-muted-foreground hover:text-foreground'
+                                )}
+                              >
+                                {platform.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Aplikasi</Label>
+                          <div className="relative">
+                            <select
+                              value={selectedApp}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSelectedApp(val);
+                                if (val !== 'custom') {
+                                  setAppPackage(val);
+                                  const app = POPULAR_APPS.find(a => a.package === val);
+                                  if (app) setIosUrl(app.iosUrl);
+                                } else {
+                                  setAppPackage('');
+                                  setIosUrl('');
+                                }
+                              }}
+                              className="w-full h-12 px-4 pr-10 rounded-xl bg-background border border-border font-bold text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                              {POPULAR_APPS.map(app => (
+                                <option key={app.package} value={app.package}>{app.name}</option>
+                              ))}
+                              <option value="custom">Kustom (Ketik Sendiri)</option>
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                              <ChevronDown className="w-4 h-4" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {selectedApp === 'custom' && (
+                          <div className="space-y-2 animate-in slide-in-from-top-2">
+                            {(targetPlatform === 'both' || targetPlatform === 'android') && (
+                              <div className="space-y-1">
+                                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Android Package Name</Label>
+                                <Input
+                                  value={appPackage}
+                                  onChange={(e) => setAppPackage(e.target.value)}
+                                  placeholder="Contoh: com.whatsapp"
+                                  className="font-mono"
+                                />
+                              </div>
+                            )}
+                            {(targetPlatform === 'both' || targetPlatform === 'ios') && (
+                              <div className="space-y-1">
+                                <Label className="text-[10px] font-bold uppercase text-muted-foreground">iOS Universal Link / URL</Label>
+                                <Input
+                                  value={iosUrl}
+                                  onChange={(e) => setIosUrl(e.target.value)}
+                                  placeholder="Contoh: https://wa.me"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                          Mode <span className="font-bold">Semua</span>: Menulis 2 record — URL (untuk iOS) + AAR (untuk Android). Mode <span className="font-bold">Android</span>: Hanya AAR. Mode <span className="font-bold">iOS</span>: Hanya URL.
+                        </p>
+                      </div>
+                    )}
+
                     {recordType === 'url' && (
                       <div className="space-y-4">
                         <div className="space-y-2">
