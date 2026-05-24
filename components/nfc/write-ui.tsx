@@ -489,13 +489,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       }
     }
 
-    const userPlan = item.users_profile?.plan || 'free';
-    const matchesPlan =
-      keychainPlanFilter === 'all' ||
-      (!isClaimed && keychainPlanFilter === 'free') || // unclaimed keychains have no plan
-      (isClaimed && userPlan === keychainPlanFilter);
-     
-    return matchesSearch && matchesStatus && matchesDate && matchesPlan;
+    return matchesSearch && matchesStatus && matchesDate;
   });
 
   return (
