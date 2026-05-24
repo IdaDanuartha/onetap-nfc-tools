@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
 import { isNFCSupported, writeCustomRecord } from '@/lib/nfc-service';
 import { encryptData } from '@/lib/crypto';
@@ -102,10 +103,17 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   const [keychainSearch, setKeychainSearch] = useState('');
   const [keychainStatusFilter, setKeychainStatusFilter] = useState<'all' | 'claimed' | 'unclaimed'>('all');
   const [keychainDateFilter, setKeychainDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
-  const [keychainPlanFilter, setKeychainPlanFilter] = useState<'all' | 'free' | 'education' | 'professional'>('all');
   const [selectedHistoryKeychain, setSelectedHistoryKeychain] = useState<any | null>(null);
   const [bulkSelectedTokens, setBulkSelectedTokens] = useState<Set<string>>(new Set());
   const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+  // Write queue for bulk write from history
+  const [keychainWriteQueue, setKeychainWriteQueue] = useState<string[]>([]);
+  const [keychainQueueIndex, setKeychainQueueIndex] = useState(0);
+  const keychainQueueRef = useRef<string[]>([]);
+  const keychainQueueIndexRef = useRef(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   // Helper: download a QR image directly as a file (blob fetch, no new tab)
   const downloadQR = useCallback(async (token: string, size = 500) => {
@@ -141,6 +149,25 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     toast.success(`${tokens.length} QR Code berhasil diunduh!`);
     setBulkSelectedTokens(new Set());
   }, [bulkSelectedTokens, downloadQR]);
+
+  // Start bulk write from selected history tokens
+  const handleBulkWriteFromHistory = useCallback(() => {
+    if (bulkSelectedTokens.size === 0) return;
+    if (!isSupported) {
+      toast.error('Penulisan NFC hanya didukung di Google Chrome di Android.');
+      return;
+    }
+    const tokens = Array.from(bulkSelectedTokens);
+    keychainQueueRef.current = tokens;
+    keychainQueueIndexRef.current = 0;
+    setKeychainWriteQueue(tokens);
+    setKeychainQueueIndex(0);
+    // Set the first token and start writing
+    setKeychainToken(tokens[0]);
+    setBulkSelectedTokens(new Set());
+    toast.success(`Antrian ${tokens.length} token siap. Tempelkan NFC tag pertama!`);
+    setStatus('waiting_for_tap');
+  }, [bulkSelectedTokens, isSupported]);
 
   const fetchKeychains = async () => {
     setLoadingKeychains(true);
@@ -296,9 +323,13 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
         return;
       }
 
-      // Keychain / Dynamic Redirect logic
+      // Keychain / Dynamic Redirect logic — support write queue mode
       if (recordType === 'keychain') {
-        finalData = `https://onetap-charm.com/r/${keychainToken.trim().toLowerCase()}`;
+        const queueActive = keychainQueueRef.current.length > 0;
+        const activeToken = queueActive
+          ? keychainQueueRef.current[keychainQueueIndexRef.current]
+          : keychainToken.trim().toLowerCase();
+        finalData = `https://onetap-charm.com/r/${activeToken}`;
         nfcRecordType = 'url';
       }
       // A3: Link Protection Logic
@@ -364,6 +395,32 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
 
       // Physical Write
       await writeCustomRecord(nfcRecordType, finalData);
+      
+      // Keychain queue mode: advance to next token after each tap
+      if (recordType === 'keychain' && keychainQueueRef.current.length > 0) {
+        const currentIdx = keychainQueueIndexRef.current;
+        const total = keychainQueueRef.current.length;
+        const nextIdx = currentIdx + 1;
+        if (nextIdx >= total) {
+          // All tokens written — clear queue
+          keychainQueueRef.current = [];
+          keychainQueueIndexRef.current = 0;
+          setKeychainWriteQueue([]);
+          setKeychainQueueIndex(0);
+          setStatus('idle');
+          toast.success(`✅ Selesai! ${total} keychain berhasil ditulis ke NFC.`);
+          return;
+        } else {
+          // Advance to next token, wait for next tap
+          keychainQueueIndexRef.current = nextIdx;
+          setKeychainQueueIndex(nextIdx);
+          setKeychainToken(keychainQueueRef.current[nextIdx]);
+          toast.success(`Tag ${currentIdx + 1}/${total} ✓ — Tempelkan tag #${nextIdx + 1}...`);
+          // Remain in waiting_for_tap; next tap will call handleWriteStart again
+          setStatus('waiting_for_tap');
+          return;
+        }
+      }
       
       // A4: Bulk Mode Success Handling
       if (isBulkMode) {
@@ -905,6 +962,51 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
               </div>
             </Card>
           )}
+
+          {/* Keychain Queue Write Progress Banner */}
+          {keychainWriteQueue.length > 0 && (
+            <Card className="border-none shadow-lg overflow-hidden border-l-4 border-l-primary animate-in slide-in-from-bottom-2">
+              <div className="p-4 bg-primary/5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="shrink-0 w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center">
+                    <Wifi className="w-4 h-4 text-primary animate-pulse" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary">Queue Write Mode</p>
+                    <p className="text-xs font-bold truncate">
+                      Menulis token{' '}
+                      <span className="font-mono bg-primary/10 px-1.5 py-0.5 rounded text-primary">
+                        {keychainWriteQueue[keychainQueueIndex]}
+                      </span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {keychainQueueIndex + 1} / {keychainWriteQueue.length} tag — Tempelkan NFC tag ke perangkat
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    keychainQueueRef.current = [];
+                    keychainQueueIndexRef.current = 0;
+                    setKeychainWriteQueue([]);
+                    setKeychainQueueIndex(0);
+                    setStatus('idle');
+                    toast.info('Queue write dibatalkan.');
+                  }}
+                  className="shrink-0 text-[10px] font-black uppercase text-destructive/70 hover:text-destructive hover:bg-destructive/10 rounded-lg px-2 py-1 transition-colors"
+                >
+                  Batalkan
+                </button>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1 bg-muted">
+                <div
+                  className="h-full bg-primary transition-all duration-500"
+                  style={{ width: `${((keychainQueueIndex) / keychainWriteQueue.length) * 100}%` }}
+                />
+              </div>
+            </Card>
+          )}
           </div>
 
           {recordType === 'keychain' && (
@@ -922,15 +1024,26 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                     </div>
                     <div className="flex items-center gap-2 self-end sm:self-auto">
                       {bulkSelectedTokens.size > 0 && (
-                        <Button
-                          size="sm"
-                          onClick={handleBulkDownloadQR}
-                          disabled={isBulkDownloading}
-                          className="h-8 text-[10px] font-bold uppercase tracking-wider gap-1.5 bg-primary text-primary-foreground"
-                        >
-                          {isBulkDownloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-                          Download {bulkSelectedTokens.size} QR
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleBulkWriteFromHistory}
+                            className="h-8 text-[10px] font-bold uppercase tracking-wider gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+                          >
+                            <Wifi className="w-3 h-3" />
+                            Write {bulkSelectedTokens.size} NFC
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleBulkDownloadQR}
+                            disabled={isBulkDownloading}
+                            className="h-8 text-[10px] font-bold uppercase tracking-wider gap-1.5 bg-primary text-primary-foreground"
+                          >
+                            {isBulkDownloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                            Download {bulkSelectedTokens.size} QR
+                          </Button>
+                        </>
                       )}
                       <Button 
                         variant="outline" 
@@ -975,17 +1088,6 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                         <option value="all">Semua Status</option>
                         <option value="claimed">Claimed</option>
                         <option value="unclaimed">Unclaimed</option>
-                      </select>
-
-                      <select 
-                        className="h-10 px-3 rounded-lg bg-muted font-bold text-[10px] uppercase tracking-wider outline-none focus:ring-2 focus:ring-primary/20 border-r-4 border-transparent"
-                        value={keychainPlanFilter}
-                        onChange={(e) => setKeychainPlanFilter(e.target.value as any)}
-                      >
-                        <option value="all">Semua Plan</option>
-                        <option value="free">Free</option>
-                        <option value="education">Education</option>
-                        <option value="professional">Professional</option>
                       </select>
 
                       <select 
@@ -1037,7 +1139,6 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                             </th>
                             <th className="px-4 py-3">Token</th>
                             <th className="px-4 py-3">Status</th>
-                            <th className="px-4 py-3">Plan</th>
                             <th className="px-4 py-3">Dibuat</th>
                             <th className="px-4 py-3 text-right">Aksi</th>
                           </tr>
@@ -1075,22 +1176,6 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[9px] uppercase border border-slate-200 dark:border-slate-700">
                                       Unclaimed
                                     </span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {isClaimed && item.users_profile?.plan ? (
-                                    <span className={cn(
-                                      "inline-flex items-center px-2 py-0.5 rounded-full font-bold text-[9px] uppercase border",
-                                      item.users_profile.plan === 'professional'
-                                        ? "bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 border-violet-100 dark:border-violet-900/30"
-                                        : item.users_profile.plan === 'education'
-                                        ? "bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/30"
-                                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                                    )}>
-                                      {item.users_profile.plan}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[9px] text-muted-foreground/50">—</span>
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-[10px] text-muted-foreground whitespace-nowrap">
@@ -1168,13 +1253,15 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
         onClose={() => setShowPasswordModal(false)}
       />
 
-      {/* Selected History Keychain QR Modal */}
-      {selectedHistoryKeychain && (
+      {/* Selected History Keychain QR Modal — portal to body to cover sidebar */}
+      {mounted && selectedHistoryKeychain && createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center animate-in fade-in duration-200"
           onClick={(e) => { if (e.target === e.currentTarget) setSelectedHistoryKeychain(null); }}
         >
-          <div className="relative bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 animate-in zoom-in-95 duration-200">
+          {/* Solid full-viewport backdrop */}
+          <div className="absolute inset-0 bg-black/75" />
+          <div className="relative bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 animate-in zoom-in-95 duration-200 z-10">
             {/* Close button */}
             <button
               onClick={() => setSelectedHistoryKeychain(null)}
@@ -1231,7 +1318,8 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
