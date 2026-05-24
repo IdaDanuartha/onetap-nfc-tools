@@ -108,13 +108,10 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   const fetchKeychains = async () => {
     setLoadingKeychains(true);
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('user_keychains')
-        .select('*, users_profile:user_id(plan, display_name, email)')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setKeychains(data || []);
+      const res = await fetch('/api/keychains/list');
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'Gagal fetch keychains');
+      setKeychains(result.data || []);
     } catch (err: any) {
       console.error('Error fetching keychains:', err);
       toast.error('Gagal mengambil data history keychain');
@@ -462,15 +459,15 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
           )}>
             <Card className="border-none shadow-xl bg-card/50 backdrop-blur-sm">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
                 <div>
-                  <CardTitle className="text-2xl font-black flex items-center gap-2">
-                    <PenSquare className="w-6 h-6 text-primary" />
+                  <CardTitle className="text-xl sm:text-2xl font-black flex items-center gap-2">
+                    <PenSquare className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
                     Write NFC Tag
                   </CardTitle>
-                  <CardDescription>Pilih mode dan data yang ingin ditulis ke chip NFC.</CardDescription>
+                  <CardDescription className="text-xs mt-1">Pilih mode dan data yang ingin ditulis ke chip NFC.</CardDescription>
                 </div>
-                <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl">
+                <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl self-start sm:self-auto shrink-0">
                   <Button 
                     variant={!isBulkMode ? 'default' : 'ghost'} 
                     size="sm" 

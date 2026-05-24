@@ -32,6 +32,7 @@ export interface UserProfile {
 export function UsersManager({ initialUsers }: { initialUsers: UserProfile[] }) {
   const [users, setUsers] = useState<UserProfile[]>(initialUsers);
   const [search, setSearch] = useState('');
+  const [planFilter, setPlanFilter] = useState<'all' | 'free' | 'professional' | 'education'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -43,12 +44,17 @@ export function UsersManager({ initialUsers }: { initialUsers: UserProfile[] }) 
   const [expiryType, setExpiryType] = useState<'30' | '90' | '365' | 'lifetime' | 'custom'>('30');
   const [customExpiryDate, setCustomExpiryDate] = useState<string>('');
 
-  const filteredUsers = users.filter(u => 
-    (u.display_name?.toLowerCase() || '').includes(search.toLowerCase()) ||
-    (u.username?.toLowerCase() || '').includes(search.toLowerCase()) ||
-    (u.email?.toLowerCase() || '').includes(search.toLowerCase()) ||
-    (u.whatsapp?.toLowerCase() || '').includes(search.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => {
+    const matchesSearch =
+      (u.display_name?.toLowerCase() || '').includes(search.toLowerCase()) ||
+      (u.username?.toLowerCase() || '').includes(search.toLowerCase()) ||
+      (u.email?.toLowerCase() || '').includes(search.toLowerCase()) ||
+      (u.whatsapp?.toLowerCase() || '').includes(search.toLowerCase());
+
+    const matchesPlan = planFilter === 'all' || u.plan === planFilter;
+
+    return matchesSearch && matchesPlan;
+  });
 
   const openPlanModal = (user: UserProfile) => {
     setSelectedUser(user);
@@ -194,15 +200,27 @@ export function UsersManager({ initialUsers }: { initialUsers: UserProfile[] }) 
         </Card>
       </div>
 
-      {/* Search Input */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input 
-          placeholder="Cari user berdasarkan nama, username, email, atau whatsapp..." 
-          className="pl-9 h-12 bg-card/50 backdrop-blur-sm border-none shadow-sm rounded-xl focus-visible:ring-primary"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      {/* Search + Plan Filter */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input 
+            placeholder="Cari user berdasarkan nama, username, email, atau whatsapp..." 
+            className="pl-9 h-12 bg-card/50 backdrop-blur-sm border-none shadow-sm rounded-xl focus-visible:ring-primary"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select
+          className="h-12 px-4 rounded-xl bg-card/50 backdrop-blur-sm shadow-sm font-bold text-xs uppercase tracking-wider outline-none focus:ring-2 focus:ring-primary/20 border-r-8 border-transparent shrink-0"
+          value={planFilter}
+          onChange={(e) => setPlanFilter(e.target.value as any)}
+        >
+          <option value="all">Semua Plan</option>
+          <option value="free">Free</option>
+          <option value="professional">Professional</option>
+          <option value="education">Education</option>
+        </select>
       </div>
 
       {/* Grid List */}
