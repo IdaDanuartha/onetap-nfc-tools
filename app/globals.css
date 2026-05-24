@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
+@variant dark (&:where(.dark, .dark *));
+
 :root {
   /* Brand colors */
   --primary: 240 5.9% 10%;        /* Neutral Zinc 900 */
