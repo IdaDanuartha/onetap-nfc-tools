@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { isNFCSupported, writeCustomRecord } from '@/lib/nfc-service';
 import { encryptData } from '@/lib/crypto';
@@ -104,6 +104,43 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   const [keychainDateFilter, setKeychainDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [keychainPlanFilter, setKeychainPlanFilter] = useState<'all' | 'free' | 'education' | 'professional'>('all');
   const [selectedHistoryKeychain, setSelectedHistoryKeychain] = useState<any | null>(null);
+  const [bulkSelectedTokens, setBulkSelectedTokens] = useState<Set<string>>(new Set());
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+
+  // Helper: download a QR image directly as a file (blob fetch, no new tab)
+  const downloadQR = useCallback(async (token: string, size = 500) => {
+    const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(`https://onetap-charm.com/r/${token}`)}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch QR image');
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `qr_${token}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch {
+      toast.error(`Gagal mengunduh QR untuk ${token}`);
+    }
+  }, []);
+
+  // Helper: bulk download all selected QR codes sequentially
+  const handleBulkDownloadQR = useCallback(async () => {
+    if (bulkSelectedTokens.size === 0) return;
+    setIsBulkDownloading(true);
+    const tokens = Array.from(bulkSelectedTokens);
+    for (const token of tokens) {
+      await downloadQR(token);
+      // Small delay to avoid rate limiting
+      await new Promise(r => setTimeout(r, 300));
+    }
+    setIsBulkDownloading(false);
+    toast.success(`${tokens.length} QR Code berhasil diunduh!`);
+    setBulkSelectedTokens(new Set());
+  }, [bulkSelectedTokens, downloadQR]);
 
   const fetchKeychains = async () => {
     setLoadingKeychains(true);
@@ -792,16 +829,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                               variant="outline"
                               size="sm"
                               className="font-bold text-xs gap-1.5 h-9 rounded-lg"
-                              onClick={() => {
-                                const url = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(`https://onetap-charm.com/r/${keychainToken.trim().toLowerCase()}`)}`;
-                                const link = document.createElement('a');
-                                link.href = url;
-                                link.target = '_blank';
-                                link.download = `qr_${keychainToken}.png`;
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                              }}
+                              onClick={() => downloadQR(keychainToken.trim().toLowerCase())}
                             >
                               <Download className="w-4 h-4" /> Download QR Code
                             </Button>
@@ -892,16 +920,29 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                       </CardTitle>
                       <CardDescription className="text-xs">Daftar token keychain yang terdaftar di database.</CardDescription>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={fetchKeychains} 
-                      disabled={loadingKeychains}
-                      className="h-8 text-[10px] font-bold uppercase tracking-wider gap-1.5 self-end sm:self-auto"
-                    >
-                      <RefreshCcw className={cn("w-3 h-3", loadingKeychains && "animate-spin")} />
-                      Refresh
-                    </Button>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      {bulkSelectedTokens.size > 0 && (
+                        <Button
+                          size="sm"
+                          onClick={handleBulkDownloadQR}
+                          disabled={isBulkDownloading}
+                          className="h-8 text-[10px] font-bold uppercase tracking-wider gap-1.5 bg-primary text-primary-foreground"
+                        >
+                          {isBulkDownloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                          Download {bulkSelectedTokens.size} QR
+                        </Button>
+                      )}
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={fetchKeychains} 
+                        disabled={loadingKeychains}
+                        className="h-8 text-[10px] font-bold uppercase tracking-wider gap-1.5"
+                      >
+                        <RefreshCcw className={cn("w-3 h-3", loadingKeychains && "animate-spin")} />
+                        Refresh
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
@@ -979,6 +1020,21 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                       <table className="w-full text-left text-xs">
                         <thead className="bg-muted/30 text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                           <tr>
+                            <th className="px-4 py-3 w-8">
+                              <input
+                                type="checkbox"
+                                className="rounded cursor-pointer accent-primary"
+                                checked={bulkSelectedTokens.size === filteredKeychains.length && filteredKeychains.length > 0}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setBulkSelectedTokens(new Set(filteredKeychains.map(k => k.token)));
+                                  } else {
+                                    setBulkSelectedTokens(new Set());
+                                  }
+                                }}
+                                title="Pilih semua"
+                              />
+                            </th>
                             <th className="px-4 py-3">Token</th>
                             <th className="px-4 py-3">Status</th>
                             <th className="px-4 py-3">Plan</th>
@@ -993,7 +1049,20 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                               ? new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })
                               : '-';
                             return (
-                              <tr key={item.id} className="hover:bg-muted/20 transition-colors group">
+                              <tr key={item.id} className={cn("hover:bg-muted/20 transition-colors group", bulkSelectedTokens.has(item.token) && "bg-primary/5")}>
+                                <td className="px-4 py-3">
+                                  <input
+                                    type="checkbox"
+                                    className="rounded cursor-pointer accent-primary"
+                                    checked={bulkSelectedTokens.has(item.token)}
+                                    onChange={(e) => {
+                                      const next = new Set(bulkSelectedTokens);
+                                      if (e.target.checked) next.add(item.token);
+                                      else next.delete(item.token);
+                                      setBulkSelectedTokens(next);
+                                    }}
+                                  />
+                                </td>
                                 <td className="px-4 py-3 font-mono font-bold text-foreground">
                                   {item.token}
                                 </td>
@@ -1037,6 +1106,15 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                                       className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md"
                                     >
                                       <QrCode className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      title="Download QR Code"
+                                      onClick={() => downloadQR(item.token)}
+                                      className="h-7 w-7 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 rounded-md"
+                                    >
+                                      <Download className="w-3.5 h-3.5" />
                                     </Button>
                                     <Button
                                       variant="ghost"
@@ -1093,7 +1171,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       {/* Selected History Keychain QR Modal */}
       {selectedHistoryKeychain && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={(e) => { if (e.target === e.currentTarget) setSelectedHistoryKeychain(null); }}
         >
           <div className="relative bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 animate-in zoom-in-95 duration-200">
@@ -1147,16 +1225,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
               </Button>
               <Button
                 className="flex-1 text-xs font-bold bg-primary text-white"
-                onClick={() => {
-                  const url = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(`https://onetap-charm.com/r/${selectedHistoryKeychain.token}`)}`;
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.target = '_blank';
-                  link.download = `qr_${selectedHistoryKeychain.token}.png`;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }}
+                onClick={() => downloadQR(selectedHistoryKeychain.token)}
               >
                 <Download className="w-3.5 h-3.5 mr-1.5" /> Download QR
               </Button>
