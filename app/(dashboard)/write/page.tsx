@@ -25,7 +25,7 @@ export default async function WritePage() {
         </p>
       </div>
 
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-7xl mx-auto px-4 md:px-6">
         <WriteUI
           userId={adminUser.id}
           userEmail={adminUser.email}

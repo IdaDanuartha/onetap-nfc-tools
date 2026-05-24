@@ -12,7 +12,8 @@ import {
   PenSquare, Phone, MessageSquare, Mail, Database, 
   RefreshCcw, Eraser, Lock, Unlock, Layers, 
   ClipboardList, User, GraduationCap, Send, Clock,
-  CheckCircle2, Copy, Download, AppWindow, ChevronDown
+  CheckCircle2, Copy, Download, AppWindow, ChevronDown,
+  Search, X, CalendarDays, ExternalLink, QrCode
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,6 +97,30 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   // Dynamic Keychain states
   const [keychainToken, setKeychainToken] = useState('');
   const [generatingToken, setGeneratingToken] = useState(false);
+  const [keychains, setKeychains] = useState<any[]>([]);
+  const [loadingKeychains, setLoadingKeychains] = useState(false);
+  const [keychainSearch, setKeychainSearch] = useState('');
+  const [keychainStatusFilter, setKeychainStatusFilter] = useState<'all' | 'claimed' | 'unclaimed'>('all');
+  const [keychainDateFilter, setKeychainDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [selectedHistoryKeychain, setSelectedHistoryKeychain] = useState<any | null>(null);
+
+  const fetchKeychains = async () => {
+    setLoadingKeychains(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('user_keychains')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setKeychains(data || []);
+    } catch (err: any) {
+      console.error('Error fetching keychains:', err);
+      toast.error('Gagal mengambil data history keychain');
+    } finally {
+      setLoadingKeychains(false);
+    }
+  };
 
   const handleGenerateKeychainToken = async () => {
     setGeneratingToken(true);
@@ -108,6 +133,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       if (result.success) {
         setKeychainToken(result.token);
         toast.success(`Token keychain unik berhasil dibuat: ${result.token}`);
+        fetchKeychains(); // Refresh the list
       } else {
         throw new Error(result.error || 'Gagal generate token');
       }
@@ -136,6 +162,12 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       });
     }
   }, [recordType, dbTags.length]);
+
+  useEffect(() => {
+    if (recordType === 'keychain') {
+      fetchKeychains();
+    }
+  }, [recordType]);
 
   // A4: Start Bulk Write
   async function handleBulkWrite() {
@@ -336,6 +368,36 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     }
   }
 
+  const filteredKeychains = keychains.filter((item) => {
+    const matchesSearch = 
+      item.token.toLowerCase().includes(keychainSearch.toLowerCase()) ||
+      (item.label && item.label.toLowerCase().includes(keychainSearch.toLowerCase())) ||
+      (item.active_mode && item.active_mode.toLowerCase().includes(keychainSearch.toLowerCase()));
+    
+    const isClaimed = item.user_id !== null;
+    const matchesStatus = 
+      keychainStatusFilter === 'all' ||
+      (keychainStatusFilter === 'claimed' && isClaimed) ||
+      (keychainStatusFilter === 'unclaimed' && !isClaimed);
+       
+    let matchesDate = true;
+    if (item.created_at) {
+      const date = new Date(item.created_at);
+      const now = new Date();
+      if (keychainDateFilter === 'today') {
+        matchesDate = date.toDateString() === now.toDateString();
+      } else if (keychainDateFilter === 'week') {
+        const weekAgo = new Date();
+        weekAgo.setDate(now.getDate() - 7);
+        matchesDate = date >= weekAgo;
+      } else if (keychainDateFilter === 'month') {
+        matchesDate = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+      }
+    }
+     
+    return matchesSearch && matchesStatus && matchesDate;
+  });
+
   return (
     <div className="space-y-6">
       {!isSupported && (
@@ -381,8 +443,15 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-6">
-          <Card className="border-none shadow-xl bg-card/50 backdrop-blur-sm">
+        <div className={cn(
+          "grid grid-cols-1 gap-6",
+          recordType === 'keychain' && "lg:grid-cols-12 lg:items-start"
+        )}>
+          <div className={cn(
+            "space-y-6",
+            recordType === 'keychain' && "lg:col-span-5"
+          )}>
+            <Card className="border-none shadow-xl bg-card/50 backdrop-blur-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -392,18 +461,24 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                   </CardTitle>
                   <CardDescription>Pilih mode dan data yang ingin ditulis ke chip NFC.</CardDescription>
                 </div>
-                <div className="flex items-center gap-2 bg-muted p-1 rounded-lg">
+                <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl">
                   <Button 
-                    variant={!isBulkMode ? 'secondary' : 'ghost'} 
+                    variant={!isBulkMode ? 'default' : 'ghost'} 
                     size="sm" 
                     onClick={() => setIsBulkMode(false)}
-                    className="h-8 text-[10px] font-bold uppercase tracking-wider"
+                    className={cn(
+                      "h-8 text-[10px] font-black uppercase tracking-wider px-3.5 rounded-lg transition-all",
+                      !isBulkMode && "shadow-md bg-primary text-primary-foreground hover:bg-primary/95"
+                    )}
                   >Single</Button>
                   <Button 
-                    variant={isBulkMode ? 'secondary' : 'ghost'} 
+                    variant={isBulkMode ? 'default' : 'ghost'} 
                     size="sm" 
                     onClick={() => setIsBulkMode(true)}
-                    className="h-8 text-[10px] font-bold uppercase tracking-wider"
+                    className={cn(
+                      "h-8 text-[10px] font-black uppercase tracking-wider px-3.5 rounded-lg transition-all",
+                      isBulkMode && "shadow-md bg-primary text-primary-foreground hover:bg-primary/95"
+                    )}
                   >Bulk</Button>
                 </div>
               </div>
@@ -796,6 +871,177 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
               </div>
             </Card>
           )}
+          </div>
+
+          {recordType === 'keychain' && (
+            <div className="lg:col-span-7 space-y-6">
+              {/* Keychain History Card */}
+              <Card className="border-none shadow-xl bg-card/50 backdrop-blur-sm overflow-hidden">
+                <CardHeader className="border-b bg-muted/30 pb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-lg font-black flex items-center gap-2">
+                        <ClipboardList className="w-5 h-5 text-primary" />
+                        KEYCHAIN HISTORY
+                      </CardTitle>
+                      <CardDescription className="text-xs">Daftar token keychain yang terdaftar di database.</CardDescription>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={fetchKeychains} 
+                      disabled={loadingKeychains}
+                      className="h-8 text-[10px] font-bold uppercase tracking-wider gap-1.5 self-end sm:self-auto"
+                    >
+                      <RefreshCcw className={cn("w-3 h-3", loadingKeychains && "animate-spin")} />
+                      Refresh
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  {/* Filters Block */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Cari token..." 
+                        className="pl-9 h-10 bg-background text-xs"
+                        value={keychainSearch}
+                        onChange={(e) => setKeychainSearch(e.target.value)}
+                      />
+                      {keychainSearch && (
+                        <button 
+                          onClick={() => setKeychainSearch('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      <select 
+                        className="h-10 px-3 rounded-lg bg-muted font-bold text-[10px] uppercase tracking-wider outline-none focus:ring-2 focus:ring-primary/20 border-r-4 border-transparent"
+                        value={keychainStatusFilter}
+                        onChange={(e) => setKeychainStatusFilter(e.target.value as any)}
+                      >
+                        <option value="all">Semua Status</option>
+                        <option value="claimed">Claimed</option>
+                        <option value="unclaimed">Unclaimed</option>
+                      </select>
+
+                      <select 
+                        className="h-10 px-3 rounded-lg bg-muted font-bold text-[10px] uppercase tracking-wider outline-none focus:ring-2 focus:ring-primary/20 border-r-4 border-transparent"
+                        value={keychainDateFilter}
+                        onChange={(e) => setKeychainDateFilter(e.target.value as any)}
+                      >
+                        <option value="all">Semua Waktu</option>
+                        <option value="today">Hari Ini</option>
+                        <option value="week">7 Hari</option>
+                        <option value="month">Bulan Ini</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Table list */}
+                  {loadingKeychains ? (
+                    <div className="py-20 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <p className="text-xs font-bold uppercase tracking-wider animate-pulse">Memuat data history...</p>
+                    </div>
+                  ) : filteredKeychains.length === 0 ? (
+                    <div className="py-16 text-center border-2 border-dashed border-border/60 rounded-2xl flex flex-col items-center justify-center gap-3 text-muted-foreground/50">
+                      <CalendarDays className="w-10 h-10" />
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold uppercase tracking-wider">Tidak ada data</p>
+                        <p className="text-[10px]">Coba sesuaikan pencarian atau filter.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-border/40 shadow-sm max-h-[420px] overflow-y-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-muted/30 text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                          <tr>
+                            <th className="px-4 py-3">Token</th>
+                            <th className="px-4 py-3">Status</th>
+                            <th className="px-4 py-3">Dibuat</th>
+                            <th className="px-4 py-3 text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y bg-background/30">
+                          {filteredKeychains.map((item) => {
+                            const isClaimed = item.user_id !== null;
+                            const dateFormatted = item.created_at
+                              ? new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })
+                              : '-';
+                            return (
+                              <tr key={item.id} className="hover:bg-muted/20 transition-colors group">
+                                <td className="px-4 py-3 font-mono font-bold text-foreground">
+                                  {item.token}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {isClaimed ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-bold text-[9px] uppercase border border-emerald-100 dark:border-emerald-900/30">
+                                      Claimed
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[9px] uppercase border border-slate-200 dark:border-slate-700">
+                                      Unclaimed
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-[10px] text-muted-foreground whitespace-nowrap">
+                                  {dateFormatted}
+                                </td>
+                                <td className="px-4 py-3 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      title="Lihat QR Code"
+                                      onClick={() => setSelectedHistoryKeychain(item)}
+                                      className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md"
+                                    >
+                                      <QrCode className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      title="Copy Link Redirect"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(`https://onetap-charm.com/r/${item.token}`);
+                                        toast.success('Link disalin!');
+                                      }}
+                                      className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md"
+                                    >
+                                      <Copy className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="xs"
+                                      title="Gunakan Token"
+                                      onClick={() => {
+                                        setKeychainToken(item.token);
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        toast.success('Token keychain dimuat ke form!');
+                                      }}
+                                      className="h-7 text-[9px] font-black uppercase tracking-wider text-primary hover:bg-primary hover:text-primary-foreground border border-primary/20 rounded-md px-2 ml-1"
+                                    >
+                                      Gunakan
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       )}
 
@@ -809,6 +1055,81 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
         }}
         onClose={() => setShowPasswordModal(false)}
       />
+
+      {/* Selected History Keychain QR Modal */}
+      {selectedHistoryKeychain && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedHistoryKeychain(null); }}
+        >
+          <div className="relative bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 animate-in zoom-in-95 duration-200">
+            {/* Close button */}
+            <button
+              onClick={() => setSelectedHistoryKeychain(null)}
+              className="absolute top-4 right-4 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+              aria-label="Tutup"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Title */}
+            <h2 className="text-lg font-black text-[hsl(var(--foreground))] mb-1 flex items-center gap-2">
+              <QrCode className="w-5 h-5 text-primary" />
+              Detail QR Code
+            </h2>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mb-5">
+              Token: <span className="font-mono font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{selectedHistoryKeychain.token}</span>
+            </p>
+
+            {/* QR Image */}
+            <div className="p-4 bg-white rounded-2xl border border-border/50 flex flex-col items-center justify-center space-y-4 mb-5">
+              <div className="relative p-2 border-2 border-slate-100 rounded-xl bg-white shadow-sm">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`https://onetap-charm.com/r/${selectedHistoryKeychain.token}`)}`}
+                  alt="Keychain QR"
+                  className="w-44 h-44 object-contain"
+                />
+              </div>
+              
+              <div className="w-full text-center space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">Redirect URL</span>
+                <span className="text-xs font-mono select-all bg-slate-50 dark:bg-slate-900 border px-3 py-1.5 rounded-lg block overflow-hidden text-ellipsis whitespace-nowrap text-slate-700 dark:text-slate-300">
+                  https://onetap-charm.com/r/{selectedHistoryKeychain.token}
+                </span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 text-xs font-bold"
+                onClick={() => {
+                  navigator.clipboard.writeText(`https://onetap-charm.com/r/${selectedHistoryKeychain.token}`);
+                  toast.success('Link disalin!');
+                }}
+              >
+                <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy Link
+              </Button>
+              <Button
+                className="flex-1 text-xs font-bold bg-primary text-white"
+                onClick={() => {
+                  const url = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(`https://onetap-charm.com/r/${selectedHistoryKeychain.token}`)}`;
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.target = '_blank';
+                  link.download = `qr_${selectedHistoryKeychain.token}.png`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+              >
+                <Download className="w-3.5 h-3.5 mr-1.5" /> Download QR
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

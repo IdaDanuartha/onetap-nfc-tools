@@ -10,19 +10,10 @@ export default async function AttendanceDashboard() {
 
   if (!user) redirect('/login');
 
-  // Fetch all logs for this user (multi-tenant)
-  // Currently, logs aren't linked to user_id directly, but we can filter by tags owned by user
-  const { data: userTags } = await supabase
-    .from('attendance_tags')
-    .select('token')
-    .eq('created_by', user.id);
-  
-  const userTokens = userTags?.map(t => t.token) || [];
-
+  // Fetch all logs from supabase
   const { data: logs } = await supabase
     .from('attendance_logs')
     .select('*')
-    .in('token', userTokens)
     .order('tapped_at', { ascending: false });
 
   // Stats
