@@ -102,6 +102,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   const [keychainSearch, setKeychainSearch] = useState('');
   const [keychainStatusFilter, setKeychainStatusFilter] = useState<'all' | 'claimed' | 'unclaimed'>('all');
   const [keychainDateFilter, setKeychainDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [keychainPlanFilter, setKeychainPlanFilter] = useState<'all' | 'free' | 'education' | 'professional'>('all');
   const [selectedHistoryKeychain, setSelectedHistoryKeychain] = useState<any | null>(null);
 
   const fetchKeychains = async () => {
@@ -110,7 +111,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('user_keychains')
-        .select('*')
+        .select('*, users_profile:user_id(plan, display_name, email)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       setKeychains(data || []);
@@ -372,7 +373,9 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     const matchesSearch = 
       item.token.toLowerCase().includes(keychainSearch.toLowerCase()) ||
       (item.label && item.label.toLowerCase().includes(keychainSearch.toLowerCase())) ||
-      (item.active_mode && item.active_mode.toLowerCase().includes(keychainSearch.toLowerCase()));
+      (item.active_mode && item.active_mode.toLowerCase().includes(keychainSearch.toLowerCase())) ||
+      (item.users_profile?.display_name && item.users_profile.display_name.toLowerCase().includes(keychainSearch.toLowerCase())) ||
+      (item.users_profile?.email && item.users_profile.email.toLowerCase().includes(keychainSearch.toLowerCase()));
     
     const isClaimed = item.user_id !== null;
     const matchesStatus = 
@@ -394,8 +397,14 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
         matchesDate = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
       }
     }
+
+    const userPlan = item.users_profile?.plan || 'free';
+    const matchesPlan =
+      keychainPlanFilter === 'all' ||
+      (!isClaimed && keychainPlanFilter === 'free') || // unclaimed keychains have no plan
+      (isClaimed && userPlan === keychainPlanFilter);
      
-    return matchesSearch && matchesStatus && matchesDate;
+    return matchesSearch && matchesStatus && matchesDate && matchesPlan;
   });
 
   return (
@@ -932,6 +941,17 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
 
                       <select 
                         className="h-10 px-3 rounded-lg bg-muted font-bold text-[10px] uppercase tracking-wider outline-none focus:ring-2 focus:ring-primary/20 border-r-4 border-transparent"
+                        value={keychainPlanFilter}
+                        onChange={(e) => setKeychainPlanFilter(e.target.value as any)}
+                      >
+                        <option value="all">Semua Plan</option>
+                        <option value="free">Free</option>
+                        <option value="education">Education</option>
+                        <option value="professional">Professional</option>
+                      </select>
+
+                      <select 
+                        className="h-10 px-3 rounded-lg bg-muted font-bold text-[10px] uppercase tracking-wider outline-none focus:ring-2 focus:ring-primary/20 border-r-4 border-transparent"
                         value={keychainDateFilter}
                         onChange={(e) => setKeychainDateFilter(e.target.value as any)}
                       >
@@ -964,6 +984,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                           <tr>
                             <th className="px-4 py-3">Token</th>
                             <th className="px-4 py-3">Status</th>
+                            <th className="px-4 py-3">Plan</th>
                             <th className="px-4 py-3">Dibuat</th>
                             <th className="px-4 py-3 text-right">Aksi</th>
                           </tr>
@@ -988,6 +1009,22 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[9px] uppercase border border-slate-200 dark:border-slate-700">
                                       Unclaimed
                                     </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {isClaimed && item.users_profile?.plan ? (
+                                    <span className={cn(
+                                      "inline-flex items-center px-2 py-0.5 rounded-full font-bold text-[9px] uppercase border",
+                                      item.users_profile.plan === 'professional'
+                                        ? "bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 border-violet-100 dark:border-violet-900/30"
+                                        : item.users_profile.plan === 'education'
+                                        ? "bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/30"
+                                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                                    )}>
+                                      {item.users_profile.plan}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] text-muted-foreground/50">—</span>
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-[10px] text-muted-foreground whitespace-nowrap">
