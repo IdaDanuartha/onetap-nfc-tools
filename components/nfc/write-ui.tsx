@@ -970,7 +970,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                             type="button"
                             onClick={handleGenerateKeychainToken}
                             disabled={generatingToken}
-                            className="h-12 px-5 font-bold bg-primary text-white shrink-0 rounded-xl"
+                            className="h-12 px-5 font-bold bg-primary text-primary-foreground shrink-0 rounded-xl"
                           >
                             {generatingToken ? (
                               <Loader2 className="w-5 h-5 animate-spin" />
@@ -1515,7 +1515,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                 <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy Link
               </Button>
               <Button
-                className="flex-1 text-xs font-bold bg-primary text-white"
+                className="flex-1 text-xs font-bold bg-primary text-primary-foreground"
                 onClick={() => downloadQR(selectedHistoryKeychain.token)}
               >
                 <Download className="w-3.5 h-3.5 mr-1.5" /> Download QR
