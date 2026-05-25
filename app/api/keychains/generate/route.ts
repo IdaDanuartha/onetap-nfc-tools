@@ -26,6 +26,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { label } = await req.json().catch(() => ({}));
+
     let uniqueToken = '';
     let isUnique = false;
     let attempts = 0;
@@ -62,7 +64,7 @@ export async function POST(req: Request) {
       .insert({
         token: uniqueToken,
         user_id: null, // Unclaimed status
-        label: 'OneTap Dynamic Keychain',
+        label: label || 'OneTap Dynamic Keychain',
         active_mode: 'url',
         payload_data: {}
       });

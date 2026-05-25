@@ -14,7 +14,8 @@ import {
   RefreshCcw, Eraser, Lock, Unlock, Layers, 
   ClipboardList, User, GraduationCap, Send, Clock,
   CheckCircle2, Copy, Download, AppWindow, ChevronDown,
-  Search, X, CalendarDays, ExternalLink, QrCode
+  Search, X, CalendarDays, ExternalLink, QrCode, Trash2,
+  Save, Edit
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -97,7 +98,18 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
 
   // Dynamic Keychain states
   const [keychainToken, setKeychainToken] = useState('');
+  const [keychainLabel, setKeychainLabel] = useState('');
   const [generatingToken, setGeneratingToken] = useState(false);
+  const [editingKeychainId, setEditingKeychainId] = useState<string | null>(null);
+  const [editingLabelValue, setEditingLabelValue] = useState('');
+  const [activeTab, setActiveTab] = useState('standard');
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{
+    title: string;
+    message: string;
+    type: 'delete_single' | 'delete_bulk';
+    targetId?: string;
+  } | null>(null);
   const [keychains, setKeychains] = useState<any[]>([]);
   const [loadingKeychains, setLoadingKeychains] = useState(false);
   const [keychainSearch, setKeychainSearch] = useState('');
@@ -185,15 +197,21 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   };
 
   const handleGenerateKeychainToken = async () => {
+    if (!keychainLabel.trim()) {
+      toast.error('Silakan isi Label / Nama Pemilik terlebih dahulu!');
+      return;
+    }
     setGeneratingToken(true);
     try {
       const res = await fetch('/api/keychains/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: keychainLabel }),
       });
       const result = await res.json();
       if (result.success) {
         setKeychainToken(result.token);
+        setKeychainLabel(''); // Clear the label input on success
         toast.success(`Token keychain unik berhasil dibuat: ${result.token}`);
         fetchKeychains(); // Refresh the list
       } else {
@@ -206,6 +224,102 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     }
   };
 
+  const handleUpdateKeychainLabel = async (id: string) => {
+    if (!editingLabelValue.trim()) {
+      toast.error('Label tidak boleh kosong!');
+      return;
+    }
+    try {
+      const res = await fetch('/api/keychains/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, label: editingLabelValue }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success('Label keychain berhasil diperbarui!');
+        setEditingKeychainId(null);
+        setEditingLabelValue('');
+        fetchKeychains(); // Refresh the list
+      } else {
+        throw new Error(result.error || 'Gagal memperbarui label');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal memperbarui label.');
+    }
+  };
+
+  const handleDeleteKeychainClick = (id: string) => {
+    setConfirmModalConfig({
+      title: 'Hapus Keychain',
+      message: 'Apakah Anda yakin ingin menghapus keychain ini? Tindakan ini tidak dapat dibatalkan.',
+      type: 'delete_single',
+      targetId: id
+    });
+    setConfirmModalOpen(true);
+  };
+
+  const handleBulkDeleteClick = () => {
+    if (bulkSelectedTokens.size === 0) return;
+    setConfirmModalConfig({
+      title: 'Hapus Massal Keychain',
+      message: `Apakah Anda yakin ingin menghapus ${bulkSelectedTokens.size} keychain terpilih? Tindakan ini tidak dapat dibatalkan.`,
+      type: 'delete_bulk'
+    });
+    setConfirmModalOpen(true);
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmModalConfig) return;
+    setConfirmModalOpen(false);
+    
+    if (confirmModalConfig.type === 'delete_single' && confirmModalConfig.targetId) {
+      await executeDeleteKeychain(confirmModalConfig.targetId);
+    } else if (confirmModalConfig.type === 'delete_bulk') {
+      await executeBulkDeleteKeychains();
+    }
+  };
+
+  const executeDeleteKeychain = async (id: string) => {
+    try {
+      const res = await fetch('/api/keychains/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success('Keychain berhasil dihapus!');
+        fetchKeychains(); // Refresh the list
+      } else {
+        throw new Error(result.error || 'Gagal menghapus keychain');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal menghapus keychain.');
+    }
+  };
+
+  const executeBulkDeleteKeychains = async () => {
+    const tokens = Array.from(bulkSelectedTokens);
+    try {
+      const res = await fetch('/api/keychains/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokens }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success(`${tokens.length} keychain berhasil dihapus!`);
+        setBulkSelectedTokens(new Set());
+        fetchKeychains(); // Refresh list
+      } else {
+        throw new Error(result.error || 'Gagal menghapus keychains');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal menghapus keychains.');
+    }
+  };
+
   useEffect(() => {
     setIsSupported(isNFCSupported());
     
@@ -214,6 +328,16 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       .then((r) => r.json())
       .then((d) => setPasswordEnabled(d.enabled ?? false))
       .catch(() => {});
+
+    // Restore active tab from local storage
+    const savedTab = localStorage.getItem('onetap_nfc_active_tab');
+    if (savedTab) {
+      setActiveTab(savedTab);
+      if (savedTab === 'standard') setRecordType('url');
+      else if (savedTab === 'attendance') setRecordType('attendance');
+      else if (savedTab === 'keychain') setRecordType('keychain');
+      else if (savedTab === 'database') setRecordType('database');
+    }
   }, []);
 
   useEffect(() => {
@@ -578,12 +702,18 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <Tabs defaultValue="standard" className="w-full" onValueChange={(v) => {
-                if (v === 'standard') setRecordType('url');
-                else if (v === 'attendance') setRecordType('attendance');
-                else if (v === 'keychain') setRecordType('keychain');
-                else if (v === 'database') setRecordType('database');
-              }}>
+              <Tabs 
+                value={activeTab} 
+                className="w-full" 
+                onValueChange={(v) => {
+                  setActiveTab(v);
+                  localStorage.setItem('onetap_nfc_active_tab', v);
+                  if (v === 'standard') setRecordType('url');
+                  else if (v === 'attendance') setRecordType('attendance');
+                  else if (v === 'keychain') setRecordType('keychain');
+                  else if (v === 'database') setRecordType('database');
+                }}
+              >
                 <TabsList className="grid w-full grid-cols-4 h-12">
                   <TabsTrigger value="standard" className="font-bold text-xs">Standard</TabsTrigger>
                   <TabsTrigger value="attendance" className="font-bold text-xs">Absensi</TabsTrigger>
@@ -815,6 +945,17 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                     </div>
 
                     <div className="space-y-4">
+                      {/* Keychain Label Input */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Label / Nama Pemilik</Label>
+                        <Input
+                          placeholder="Contoh: Keychain Budi / Resepsionis"
+                          value={keychainLabel}
+                          onChange={(e) => setKeychainLabel(e.target.value)}
+                          className="h-12 bg-white text-base font-medium focus-visible:ring-primary"
+                        />
+                      </div>
+
                       {/* Input + Generate Button Row */}
                       <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Keychain Token</Label>
@@ -1037,6 +1178,15 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                             {isBulkDownloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
                             Download {bulkSelectedTokens.size} QR
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={handleBulkDeleteClick}
+                            className="h-8 text-[10px] font-bold uppercase tracking-wider gap-1.5 text-white bg-destructive hover:bg-destructive/90"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Hapus {bulkSelectedTokens.size}
+                          </Button>
                         </>
                       )}
                       <Button 
@@ -1132,6 +1282,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                               />
                             </th>
                             <th className="px-4 py-3">Token</th>
+                            <th className="px-4 py-3">Label</th>
                             <th className="px-4 py-3">Status</th>
                             <th className="px-4 py-3">Dibuat</th>
                             <th className="px-4 py-3 text-right">Aksi</th>
@@ -1161,6 +1312,56 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                                 <td className="px-4 py-3 font-mono font-bold text-foreground">
                                   {item.token}
                                 </td>
+                                 <td className="px-4 py-3 text-[11px] text-muted-foreground font-medium">
+                                   {editingKeychainId === item.id ? (
+                                     <div className="flex items-center gap-1.5 animate-in slide-in-from-left-1 duration-150">
+                                       <Input
+                                         value={editingLabelValue}
+                                         onChange={(e) => setEditingLabelValue(e.target.value)}
+                                         placeholder="Edit label..."
+                                         className="h-8 py-0.5 px-2 bg-background border border-primary/40 text-[11px] max-w-[150px] focus-visible:ring-primary font-medium"
+                                         autoFocus
+                                       />
+                                       <Button
+                                         size="icon-xs"
+                                         variant="ghost"
+                                         type="button"
+                                         title="Simpan"
+                                         onClick={() => handleUpdateKeychainLabel(item.id)}
+                                         className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-md"
+                                       >
+                                         <Save className="w-3.5 h-3.5" />
+                                       </Button>
+                                       <Button
+                                         size="icon-xs"
+                                         variant="ghost"
+                                         type="button"
+                                         title="Batal"
+                                         onClick={() => {
+                                           setEditingKeychainId(null);
+                                           setEditingLabelValue('');
+                                         }}
+                                         className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md"
+                                       >
+                                         <X className="w-3.5 h-3.5" />
+                                       </Button>
+                                     </div>
+                                   ) : (
+                                     <div className="flex items-center gap-1.5 group/label">
+                                       <span>{item.label || '-'}</span>
+                                       <button
+                                         onClick={() => {
+                                           setEditingKeychainId(item.id);
+                                           setEditingLabelValue(item.label || '');
+                                         }}
+                                         className="opacity-0 group-hover/label:opacity-100 p-0.5 hover:bg-muted text-muted-foreground hover:text-primary rounded transition-opacity"
+                                         title="Edit Label"
+                                       >
+                                         <Edit className="w-3 h-3" />
+                                       </button>
+                                     </div>
+                                   )}
+                                 </td>
                                 <td className="px-4 py-3">
                                   {isClaimed ? (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-bold text-[9px] uppercase border border-emerald-100 dark:border-emerald-900/30">
@@ -1206,6 +1407,15 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                                       className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md"
                                     >
                                       <Copy className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      title="Hapus Keychain"
+                                      onClick={() => handleDeleteKeychainClick(item.id)}
+                                      className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
                                     </Button>
                                     <Button
                                       variant="ghost"
@@ -1314,6 +1524,46 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Custom Proper Delete Confirmation Modal */}
+      {confirmModalOpen && confirmModalConfig && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setConfirmModalOpen(false)}
+        >
+          <Card className="relative bg-card border border-border rounded-3xl shadow-2xl w-full max-w-sm mx-4 p-8 animate-in zoom-in-95 duration-200 space-y-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-destructive/10 mx-auto text-destructive animate-bounce">
+              <AlertCircle className="w-8 h-8 animate-pulse" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-black uppercase tracking-tight text-foreground">
+                {confirmModalConfig.title}
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {confirmModalConfig.message}
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 h-11 rounded-xl font-bold text-xs"
+                onClick={() => setConfirmModalOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1 h-11 rounded-xl font-black text-xs uppercase tracking-wider"
+                onClick={handleConfirmAction}
+              >
+                Hapus
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );
