@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, PenSquare, ClipboardList, BookOpen, Layers, 
-  ShieldCheck, Users, MoreHorizontal, X, LogOut 
+  ShieldCheck, Users, MoreHorizontal, X, LogOut, ShoppingBag, Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -34,9 +34,11 @@ export function MobileNav() {
 
   // Secondary items placed cleanly in the slide-up "More" drawer
   const moreItems = [
+    { href: '/products', label: 'Manage Products', icon: ShoppingBag, desc: 'Kelola Katalog & Produk' },
     { href: '/tags', label: 'Manage Tags', icon: Layers, desc: 'Kelola Keychain & NFC' },
     { href: '/scanner', label: 'Verify Tags', icon: ShieldCheck, desc: 'Verifikasi & Log Scan NFC' },
     { href: '/attendance', label: 'Attendance', icon: ClipboardList, desc: 'Log Kehadiran & Absensi' },
+    { href: '/settings', label: 'Settings', icon: Settings, desc: 'Kelola Profil & Sandi Admin' },
   ];
 
   return (

@@ -15,14 +15,42 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OneTap NFC Tools",
-  description: "PWA Admin Dashboard for managing physical NFC tags",
+  title: {
+    default: "OneTap NFC Admin Tools",
+    template: "%s | OneTap NFC Admin",
+  },
+  description: "Dashboard administrasi dan perkakas OneTap NFC untuk manajemen produk, penulisan tag NFC, verifikasi, dan pemantauan absensi terintegrasi.",
+  keywords: ["OneTap NFC", "NFC Tools", "Admin Dashboard", "Write NFC", "Read NFC", "Verify NFC", "PWA NFC Tools"],
+  authors: [{ name: "OneTap NFC Developer Team" }],
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/images/logo_simple.png", sizes: "any" },
+      { url: "/images/logo_simple.png", type: "image/png", sizes: "192x192" },
+      { url: "/images/logo_simple.png", type: "image/png", sizes: "512x512" }
+    ],
+    apple: [
+      { url: "/images/logo_simple.png", sizes: "180x180", type: "image/png" }
+    ]
+  },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "OneTap NFC",
+    statusBarStyle: "black-translucent",
+    title: "OneTap NFC Tools",
   },
+  openGraph: {
+    type: "website",
+    locale: "id_ID",
+    url: "https://tools.onetapnfc.com",
+    title: "OneTap NFC Admin Tools",
+    description: "Dashboard administrasi dan perkakas OneTap NFC untuk manajemen produk, penulisan tag NFC, verifikasi, dan pemantauan absensi terintegrasi.",
+    siteName: "OneTap NFC Tools",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "OneTap NFC Admin Tools",
+    description: "Dashboard administrasi dan perkakas OneTap NFC untuk manajemen produk, penulisan tag NFC, verifikasi, dan pemantauan absensi terintegrasi.",
+  }
 };
 
 export const viewport = {

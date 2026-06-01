@@ -15,6 +15,8 @@ import {
   ClipboardList,
   Layers,
   Users,
+  ShoppingBag,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -22,14 +24,31 @@ import { Button } from '@/components/ui/button';
 import type { AdminUser } from '@/lib/types';
 import { ThemeToggle } from '@/components/theme-toggle';
 
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/users', label: 'Users', icon: Users },
-  { href: '/read', label: 'Read', icon: ScanLine },
-  { href: '/scanner', label: 'Verify', icon: ShieldCheck },
-  { href: '/tags', label: 'Tags', icon: Layers },
-  { href: '/write', label: 'Write', icon: PenSquare },
-  { href: '/attendance', label: 'Attendance', icon: ClipboardList },
+const navSections = [
+  {
+    title: 'Utama',
+    items: [
+      { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/users', label: 'Users', icon: Users },
+      { href: '/products', label: 'Products', icon: ShoppingBag },
+    ],
+  },
+  {
+    title: 'Operasi NFC',
+    items: [
+      { href: '/read', label: 'Read', icon: ScanLine },
+      { href: '/write', label: 'Write', icon: PenSquare },
+      { href: '/tags', label: 'Tags', icon: Layers },
+      { href: '/scanner', label: 'Verify', icon: ShieldCheck },
+    ],
+  },
+  {
+    title: 'Sistem',
+    items: [
+      { href: '/attendance', label: 'Attendance', icon: ClipboardList },
+      { href: '/settings', label: 'Settings', icon: Settings },
+    ],
+  },
 ];
 
 interface SidebarProps {
@@ -53,7 +72,7 @@ export function Sidebar({ user }: SidebarProps) {
     : user.email.slice(0, 2).toUpperCase();
 
   return (
-    <aside className="hidden md:flex flex-col w-60 shrink-0 bg-[hsl(var(--sidebar))] text-[hsl(var(--sidebar-foreground))] min-h-screen">
+    <aside className="hidden md:flex flex-col w-60 shrink-0 bg-[hsl(var(--sidebar))] text-[hsl(var(--sidebar-foreground))] h-screen sticky top-0">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-[hsl(var(--sidebar-border))]">
         <div className="flex items-center gap-3">
@@ -66,26 +85,35 @@ export function Sidebar({ user }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
-                active
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm'
-                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]'
-              )}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span className="flex-1">{label}</span>
-              {active && <ChevronRight className="w-3 h-3 opacity-60" />}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
+        {navSections.map((section) => (
+          <div key={section.title} className="space-y-1.5">
+            <h4 className="px-3 text-[10px] font-black tracking-widest text-[hsl(var(--muted-foreground))] uppercase opacity-60">
+              {section.title}
+            </h4>
+            <div className="space-y-1">
+              {section.items.map(({ href, label, icon: Icon }) => {
+                const active = pathname === href;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 group',
+                      active
+                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm'
+                        : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]'
+                    )}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="flex-1">{label}</span>
+                    {active && <ChevronRight className="w-3 h-3 opacity-60" />}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* User profile */}

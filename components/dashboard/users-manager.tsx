@@ -223,143 +223,180 @@ export function UsersManager({ initialUsers }: { initialUsers: UserProfile[] }) 
         </select>
       </div>
 
-      {/* Grid List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredUsers.length === 0 ? (
-          <div className="col-span-full py-12 flex flex-col items-center justify-center text-center space-y-3 bg-card/30 backdrop-blur-sm rounded-3xl border border-dashed border-border/20">
-            <Users className="w-12 h-12 text-muted-foreground/40 animate-pulse" />
-            <div>
-              <p className="text-base font-bold text-foreground/80">User Tidak Ditemukan</p>
-              <p className="text-xs text-muted-foreground">Coba cari dengan kata kunci yang berbeda.</p>
-            </div>
-          </div>
-        ) : (
-          filteredUsers.map((user) => {
-            const initials = (user.display_name || user.username || 'US')
-              .slice(0, 2)
-              .toUpperCase();
-
-            // Plan style details
-            let planBadgeClass = 'bg-muted/40 text-muted-foreground border-transparent';
-            let planText = 'FREE';
-            
-            if (user.plan === 'professional') {
-              planBadgeClass = 'bg-gradient-to-r from-[#FF5FA2]/15 to-[#E8457E]/15 text-[#FF5FA2] border-[#FF5FA2]/20 font-black';
-              planText = 'PRO';
-            } else if (user.plan === 'education') {
-              planBadgeClass = 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20';
-              planText = 'EDU';
-            }
-
-            // Expiry details
-            let expiryText = 'Selamanya';
-            let isExpired = false;
-            let daysLeft = null;
-
-            if (user.plan !== 'free' && user.plan_expires_at) {
-              const expDate = new Date(user.plan_expires_at);
-              isExpired = expDate.getTime() < Date.now();
-              
-              const diffTime = expDate.getTime() - Date.now();
-              daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-              
-              expiryText = expDate.toLocaleDateString('id-ID', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric'
-              });
-            } else if (user.plan === 'free') {
-              expiryText = '-';
-            }
-
-            return (
-              <Card key={user.id} className="border-none shadow-xl bg-card/50 backdrop-blur-sm group hover:ring-2 hover:ring-primary/20 transition-all overflow-hidden rounded-2xl flex flex-col justify-between">
-                <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="w-12 h-12 rounded-xl ring-2 ring-primary/10 shadow-inner shrink-0">
-                      {user.avatar_url && <AvatarImage src={user.avatar_url} alt={user.display_name || user.username} className="object-cover" />}
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-black uppercase">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <CardTitle className="text-base font-bold truncate pr-2" title={user.display_name || user.username}>
-                        {user.display_name || user.username}
-                      </CardTitle>
-                      <CardDescription className="text-xs font-semibold text-muted-foreground truncate">
-                        @{user.username}
-                      </CardDescription>
+      {/* Table List */}
+      <div className="bg-card/50 backdrop-blur-sm rounded-2xl border border-border/10 shadow-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border/30 bg-muted/20 text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                <th className="p-4 pl-6">Profil</th>
+                <th className="p-4">Kontak</th>
+                <th className="p-4">Terdaftar</th>
+                <th className="p-4">Plan Status</th>
+                <th className="p-4">Masa Berlaku</th>
+                <th className="p-4 pr-6 text-right w-28">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/20 text-sm font-medium text-foreground">
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-12 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <Users className="w-10 h-10 text-muted-foreground/45 animate-pulse" />
+                      <p className="font-bold">User Tidak Ditemukan</p>
+                      <p className="text-xs">Gunakan kata kunci pencarian lain atau saring dengan plan yang berbeda.</p>
                     </div>
-                  </div>
-                  <Button 
-                    onClick={() => openPlanModal(user)} 
-                    variant="outline" 
-                    size="icon" 
-                    className="rounded-full h-8 w-8 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all shrink-0 shadow-sm"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                  </Button>
-                </CardHeader>
-                <CardContent className="space-y-4 flex-1 flex flex-col justify-between">
-                  {/* Bio details or user tags */}
-                  <div className="space-y-2 p-3 bg-muted/30 rounded-xl text-xs font-medium text-muted-foreground border border-border/10">
-                    <div className="flex items-center gap-2 truncate">
-                      <Mail className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
-                      <span className="truncate text-foreground/80 font-mono select-all" title={user.email || 'Tidak ada email'}>
-                        {user.email || 'Tidak ada email'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 truncate">
-                      <Phone className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
-                      <span className="truncate text-foreground/80 font-mono select-all">
-                        {user.whatsapp || 'Tidak ada WA'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 truncate">
-                      <Calendar className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
-                      <span>Terdaftar: <span className="font-semibold text-foreground/80">{new Date(user.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span></span>
-                    </div>
-                  </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user) => {
+                  const initials = (user.display_name || user.username || 'US')
+                    .slice(0, 2)
+                    .toUpperCase();
 
-                  {/* Plan display area */}
-                  <div className="flex items-center justify-between pt-1">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[9px] uppercase font-black text-muted-foreground tracking-wider">Plan Status</span>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Badge variant="outline" className={cn("rounded-md px-2 py-0.5 text-[9px] uppercase tracking-wider font-extrabold border-2", planBadgeClass)}>
-                          {planText}
-                        </Badge>
-                        {isExpired && user.plan !== 'free' && (
-                          <Badge variant="destructive" className="rounded-md px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter animate-pulse">
-                            Expired
+                  // Plan style details
+                  let planBadgeClass = 'bg-muted/40 text-muted-foreground border-transparent';
+                  let planText = 'FREE';
+                  
+                  if (user.plan === 'professional') {
+                    planBadgeClass = 'bg-gradient-to-r from-[#FF5FA2]/15 to-[#E8457E]/15 text-[#FF5FA2] border-[#FF5FA2]/20 font-black';
+                    planText = 'PRO';
+                  } else if (user.plan === 'education') {
+                    planBadgeClass = 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20';
+                    planText = 'EDU';
+                  }
+
+                  // Expiry details
+                  let expiryText = 'Selamanya';
+                  let isExpired = false;
+                  let daysLeft = null;
+
+                  if (user.plan !== 'free' && user.plan_expires_at) {
+                    const expDate = new Date(user.plan_expires_at);
+                    isExpired = expDate.getTime() < Date.now();
+                    
+                    const diffTime = expDate.getTime() - Date.now();
+                    daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    expiryText = expDate.toLocaleDateString('id-ID', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric'
+                    });
+                  } else if (user.plan === 'free') {
+                    expiryText = '-';
+                  }
+
+                  return (
+                    <tr key={user.id} className="hover:bg-muted/10 transition-colors">
+                      {/* Profil (Avatar, display_name, username) */}
+                      <td className="p-4 pl-6">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-10 h-10 rounded-xl ring-2 ring-primary/10 shadow-inner shrink-0">
+                            {user.avatar_url && (
+                              <AvatarImage 
+                                src={user.avatar_url} 
+                                alt={user.display_name || user.username} 
+                                className="object-cover" 
+                              />
+                            )}
+                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-black uppercase">
+                              {initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <div className="font-bold text-foreground leading-snug truncate max-w-[180px]" title={user.display_name || user.username}>
+                              {user.display_name || user.username}
+                            </div>
+                            <div className="text-[11px] font-semibold text-muted-foreground truncate max-w-[150px]">
+                              @{user.username}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Kontak (Email, WhatsApp) */}
+                      <td className="p-4">
+                        <div className="space-y-1 text-xs">
+                          <div className="flex items-center gap-1.5 text-foreground/80">
+                            <Mail className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                            <span className="font-mono select-all truncate max-w-[180px]" title={user.email || 'Tidak ada email'}>
+                              {user.email || 'Tidak ada email'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-foreground/80">
+                            <Phone className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                            <span className="font-mono select-all truncate max-w-[150px]" title={user.whatsapp || 'Tidak ada WA'}>
+                              {user.whatsapp || 'Tidak ada WA'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Terdaftar */}
+                      <td className="p-4 text-xs font-bold text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                          <span>
+                            {new Date(user.created_at).toLocaleDateString('id-ID', { 
+                              day: 'numeric', 
+                              month: 'short', 
+                              year: 'numeric' 
+                            })}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Plan Status */}
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={cn("rounded-md px-2 py-0.5 text-[9px] uppercase tracking-wider font-extrabold border-2", planBadgeClass)}>
+                            {planText}
                           </Badge>
-                        )}
-                      </div>
-                    </div>
+                          {isExpired && user.plan !== 'free' && (
+                            <Badge variant="destructive" className="rounded-md px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter animate-pulse">
+                              Expired
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
 
-                    <div className="flex flex-col items-end gap-0.5">
-                      <span className="text-[9px] uppercase font-black text-muted-foreground tracking-wider">Masa Berlaku</span>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <Clock className="w-3 h-3 text-muted-foreground/60" />
-                        <span className={cn(
-                          "text-xs font-bold font-mono",
-                          isExpired && user.plan !== 'free' ? "text-destructive" : "text-foreground/80"
-                        )}>
-                          {expiryText}
-                        </span>
-                      </div>
-                      {daysLeft !== null && daysLeft > 0 && !isExpired && (
-                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tighter mt-0.5">
-                          ({daysLeft} Hari Lagi)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
+                      {/* Masa Berlaku */}
+                      <td className="p-4">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5 text-xs font-bold font-mono text-foreground/80">
+                            <Clock className="w-3 h-3 text-muted-foreground/60" />
+                            <span className={cn(isExpired && user.plan !== 'free' ? "text-destructive" : "text-foreground/80")}>
+                              {expiryText}
+                            </span>
+                          </div>
+                          {daysLeft !== null && daysLeft > 0 && !isExpired && (
+                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tighter ml-4">
+                              ({daysLeft} Hari Lagi)
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Aksi */}
+                      <td className="p-4 pr-6 text-right">
+                        <Button 
+                          onClick={() => openPlanModal(user)} 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-lg border-none bg-muted hover:bg-primary/10 hover:text-primary transition-all shadow-sm"
+                          title="Edit plan user"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* PLAN CONFIGURATION MODAL */}
