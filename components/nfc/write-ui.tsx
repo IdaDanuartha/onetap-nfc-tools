@@ -454,10 +454,11 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     }
   }
 
-  async function handleWriteStart() {
+  async function handleWriteStart(tokenOverride?: string) {
     // Validation
     if (recordType === 'keychain') {
-      if (!keychainToken.trim()) {
+      const activeToken = tokenOverride || keychainToken;
+      if (!activeToken.trim() && keychainQueueRef.current.length === 0) {
         toast.error('Token keychain belum diisi atau digenerate!');
         return;
       }
@@ -562,7 +563,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
         const queueActive = keychainQueueRef.current.length > 0;
         const activeToken = queueActive
           ? keychainQueueRef.current[keychainQueueIndexRef.current]
-          : keychainToken.trim().toLowerCase();
+          : (tokenOverride || keychainToken).trim().toLowerCase();
         finalData = `https://onetap-charm.com/r/${activeToken}`;
         nfcRecordType = 'url';
       }
