@@ -128,7 +128,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   useEffect(() => { setMounted(true); }, []);
 
   // Helper: download a QR image directly as a file (blob fetch, no new tab)
-  const downloadQR = useCallback(async (token: string, size = 500) => {
+  const downloadQR = useCallback(async (token: string, label?: string, size = 500) => {
     const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(`https://onetap-charm.com/r/${token}`)}`;
     try {
       const res = await fetch(url);
@@ -137,7 +137,10 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = objectUrl;
-      link.download = `qr_${token}.png`;
+      const sanitizedLabel = label
+        ? '_' + label.trim().replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '')
+        : '';
+      link.download = `qr_${token}${sanitizedLabel}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -153,14 +156,15 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     setIsBulkDownloading(true);
     const tokens = Array.from(bulkSelectedTokens);
     for (const token of tokens) {
-      await downloadQR(token);
+      const item = keychains.find(k => k.token === token);
+      await downloadQR(token, item?.label);
       // Small delay to avoid rate limiting
       await new Promise(r => setTimeout(r, 300));
     }
     setIsBulkDownloading(false);
     toast.success(`${tokens.length} QR Code berhasil diunduh!`);
     setBulkSelectedTokens(new Set());
-  }, [bulkSelectedTokens, downloadQR]);
+  }, [bulkSelectedTokens, downloadQR, keychains]);
 
   // Start bulk write from selected history tokens
   const handleBulkWriteFromHistory = useCallback(() => {
@@ -1052,7 +1056,10 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                               variant="outline"
                               size="sm"
                               className="font-bold text-xs gap-1.5 h-9 rounded-lg"
-                              onClick={() => downloadQR(keychainToken.trim().toLowerCase())}
+                              onClick={() => {
+                                const label = keychains.find(k => k.token.toLowerCase() === keychainToken.trim().toLowerCase())?.label;
+                                downloadQR(keychainToken.trim().toLowerCase(), label);
+                              }}
                             >
                               <Download className="w-4 h-4" /> Download QR Code
                             </Button>
@@ -1422,7 +1429,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                                       variant="ghost"
                                       size="icon-xs"
                                       title="Download QR Code"
-                                      onClick={() => downloadQR(item.token)}
+                                      onClick={() => downloadQR(item.token, item.label)}
                                       className="h-7 w-7 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 rounded-md"
                                     >
                                       <Download className="w-3.5 h-3.5" />
@@ -1549,7 +1556,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
               </Button>
               <Button
                 className="flex-1 text-xs font-bold bg-primary text-primary-foreground"
-                onClick={() => downloadQR(selectedHistoryKeychain.token)}
+                onClick={() => downloadQR(selectedHistoryKeychain.token, selectedHistoryKeychain.label)}
               >
                 <Download className="w-3.5 h-3.5 mr-1.5" /> Download QR
               </Button>
