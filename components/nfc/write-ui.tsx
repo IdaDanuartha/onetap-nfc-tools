@@ -113,7 +113,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   const [keychains, setKeychains] = useState<any[]>([]);
   const [loadingKeychains, setLoadingKeychains] = useState(false);
   const [keychainSearch, setKeychainSearch] = useState('');
-  const [keychainStatusFilter, setKeychainStatusFilter] = useState<'all' | 'claimed' | 'unclaimed'>('all');
+  const [keychainStatusFilter, setKeychainStatusFilter] = useState<'all' | 'claimed' | 'unclaimed'>('unclaimed');
   const [keychainDateFilter, setKeychainDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [selectedHistoryKeychain, setSelectedHistoryKeychain] = useState<any | null>(null);
   const [bulkSelectedTokens, setBulkSelectedTokens] = useState<Set<string>>(new Set());
