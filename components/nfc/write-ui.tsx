@@ -1350,7 +1350,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                                          value={editingLabelValue}
                                          onChange={(e) => setEditingLabelValue(e.target.value)}
                                          placeholder="Edit label..."
-                                         className="h-8 py-0.5 px-2 bg-background border border-primary/40 text-[11px] max-w-[150px] focus-visible:ring-primary font-medium"
+                                         className="h-8 py-0.5 px-2 bg-background border border-primary/40 text-[11px] w-[130px] min-w-[80px] flex-1 focus-visible:ring-primary font-medium"
                                          autoFocus
                                        />
                                        <Button
