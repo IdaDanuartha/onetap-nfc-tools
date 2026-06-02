@@ -178,11 +178,18 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     keychainQueueIndexRef.current = 0;
     setKeychainWriteQueue(tokens);
     setKeychainQueueIndex(0);
-    // Set the first token and start writing
+    // Set the first token
     setKeychainToken(tokens[0]);
     setBulkSelectedTokens(new Set());
+    
+    setActiveTab('keychain');
+    setRecordType('keychain');
+    localStorage.setItem('onetap_nfc_active_tab', 'keychain');
+    
     toast.success(`Antrian ${tokens.length} token siap. Tempelkan NFC tag pertama!`);
-    setStatus('waiting_for_tap');
+    setTimeout(() => {
+      handleWriteStart();
+    }, 100);
   }, [bulkSelectedTokens, isSupported]);
 
   const fetchKeychains = async () => {
@@ -444,6 +451,51 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     setStatus('waiting_for_tap');
     
     try {
+      // Keychain queue mode loop - intercept early
+      if (recordType === 'keychain' && keychainQueueRef.current.length > 0) {
+        const tokens = [...keychainQueueRef.current];
+        const total = tokens.length;
+        
+        for (let i = 0; i < total; i++) {
+          if (keychainQueueRef.current.length === 0) break; // Cancelled
+          
+          keychainQueueIndexRef.current = i;
+          setKeychainQueueIndex(i);
+          setKeychainToken(tokens[i]);
+          
+          const finalData = `https://onetap-charm.com/r/${tokens[i].toLowerCase()}`;
+          
+          // Blocks until tapped
+          await writeCustomRecord('url', finalData);
+          
+          await logActivity({
+            action: 'tag_written',
+            tagId: null,
+            performedBy: userId,
+            metadata: { record_type: 'keychain', preview: finalData }
+          });
+          
+          if (i === total - 1) {
+            keychainQueueRef.current = [];
+            keychainQueueIndexRef.current = 0;
+            setKeychainWriteQueue([]);
+            setKeychainQueueIndex(0);
+            setStatus('idle');
+            toast.success(`✅ Selesai! Semua ${total} keychain berhasil ditulis ke NFC.`);
+          } else {
+            const currentLabel = keychains.find(k => k.token === tokens[i])?.label || 'Tanpa Label';
+            const nextLabel = keychains.find(k => k.token === tokens[i + 1])?.label || 'Tanpa Label';
+            
+            toast.success(`Tag #${i + 1} (${currentLabel}) berhasil ditulis!`);
+            toast.info(`Siapkan tag #${i + 2} berikutnya untuk: ${nextLabel}`);
+            
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            if (keychainQueueRef.current.length === 0) break; // Cancelled during wait
+          }
+        }
+        return;
+      }
+
       let finalData = data;
       let nfcRecordType: 'url' | 'text' | 'json' | 'erase' = 'url';
 
@@ -555,31 +607,6 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       // Physical Write
       await writeCustomRecord(nfcRecordType, finalData);
       
-      // Keychain queue mode: advance to next token after each tap
-      if (recordType === 'keychain' && keychainQueueRef.current.length > 0) {
-        const currentIdx = keychainQueueIndexRef.current;
-        const total = keychainQueueRef.current.length;
-        const nextIdx = currentIdx + 1;
-        if (nextIdx >= total) {
-          // All tokens written — clear queue
-          keychainQueueRef.current = [];
-          keychainQueueIndexRef.current = 0;
-          setKeychainWriteQueue([]);
-          setKeychainQueueIndex(0);
-          setStatus('idle');
-          toast.success(`✅ Selesai! ${total} keychain berhasil ditulis ke NFC.`);
-          return;
-        } else {
-          // Advance to next token, wait for next tap
-          keychainQueueIndexRef.current = nextIdx;
-          setKeychainQueueIndex(nextIdx);
-          setKeychainToken(keychainQueueRef.current[nextIdx]);
-          toast.success(`Tag ${currentIdx + 1}/${total} ✓ — Tempelkan tag #${nextIdx + 1}...`);
-          // Remain in waiting_for_tap; next tap will call handleWriteStart again
-          setStatus('waiting_for_tap');
-          return;
-        }
-      }
       
       // A4: Bulk Mode Success Handling
       if (isBulkMode) {
@@ -678,9 +705,26 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
             
             <div className="space-y-2">
               <h3 className="font-bold text-2xl">
-                {isBulkMode ? `Bulk Write: Tag #${bulkCount + 1}` : 'Siap Menulis'}
+                {keychainWriteQueue.length > 0 
+                  ? `Menulis Antrian: Tag ${keychainQueueIndex + 1} / ${keychainWriteQueue.length}` 
+                  : (isBulkMode ? `Bulk Write: Tag #${bulkCount + 1}` : 'Siap Menulis')}
               </h3>
               <p className="text-muted-foreground">Tempelkan NFC Tag ke bagian belakang perangkat Anda.</p>
+              
+              {/* Informative Label/Owner name for Keychain Mode */}
+              {recordType === 'keychain' && (
+                <div className="mt-4 p-4 rounded-2xl bg-primary/10 border border-primary/20 inline-block text-center min-w-[240px] animate-in fade-in zoom-in-95 duration-300">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-primary">Target Penerima Keychain</p>
+                  <p className="text-xl font-extrabold mt-1 text-foreground">
+                    {keychainWriteQueue.length > 0 
+                      ? (keychains.find(k => k.token === keychainWriteQueue[keychainQueueIndex])?.label || 'Tanpa Label')
+                      : (keychainLabel || keychains.find(k => k.token.toLowerCase() === keychainToken.trim().toLowerCase())?.label || 'Tanpa Label')}
+                  </p>
+                  <p className="text-[10px] font-mono text-muted-foreground mt-1.5 bg-background/50 py-1 px-2.5 rounded-lg inline-block font-bold">
+                    Token: {keychainWriteQueue.length > 0 ? keychainWriteQueue[keychainQueueIndex] : keychainToken}
+                  </p>
+                </div>
+              )}
             </div>
 
             {isBulkMode && (
@@ -690,7 +734,18 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
               </div>
             )}
 
-            <Button variant="outline" onClick={() => { setStatus('idle'); setBulkStatus('idle'); }} className="w-full">
+            <Button 
+              variant="outline" 
+              onClick={() => { 
+                setStatus('idle'); 
+                setBulkStatus('idle'); 
+                keychainQueueRef.current = [];
+                keychainQueueIndexRef.current = 0;
+                setKeychainWriteQueue([]);
+                setKeychainQueueIndex(0);
+              }} 
+              className="w-full"
+            >
               Batal
             </Button>
           </CardContent>
@@ -1147,13 +1202,10 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                   <div className="min-w-0">
                     <p className="text-[10px] font-black uppercase tracking-widest text-primary">Queue Write Mode</p>
                     <p className="text-xs font-bold truncate">
-                      Menulis token{' '}
-                      <span className="font-mono bg-primary/10 px-1.5 py-0.5 rounded text-primary">
-                        {keychainWriteQueue[keychainQueueIndex]}
-                      </span>
+                      Pemilik: <span className="font-extrabold text-foreground">{keychains.find(k => k.token === keychainWriteQueue[keychainQueueIndex])?.label || 'Tanpa Label'}</span>
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {keychainQueueIndex + 1} / {keychainWriteQueue.length} tag — Tempelkan NFC tag ke perangkat
+                      Token: <span className="font-mono bg-primary/10 px-1.5 py-0.5 rounded text-primary font-bold">{keychainWriteQueue[keychainQueueIndex]}</span> ({keychainQueueIndex + 1} / {keychainWriteQueue.length} tag)
                     </p>
                   </div>
                 </div>
