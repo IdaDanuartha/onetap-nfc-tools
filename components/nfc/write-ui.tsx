@@ -107,7 +107,7 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     title: string;
     message: string;
-    type: 'delete_single' | 'delete_bulk';
+    type: 'delete_single' | 'delete_bulk' | 'unclaim_single' | 'unclaim_bulk';
     targetId?: string;
   } | null>(null);
   const [keychains, setKeychains] = useState<any[]>([]);
@@ -259,12 +259,22 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     setConfirmModalOpen(true);
   };
 
-  const handleBulkDeleteClick = () => {
+  const handleUnclaimKeychainClick = (id: string) => {
+    setConfirmModalConfig({
+      title: 'Reset ke Unclaimed',
+      message: 'Keychain ini akan direset ke status unclaimed. Data tidak dihapus, namun kepemilikan pengguna akan dilepas.',
+      type: 'unclaim_single',
+      targetId: id
+    });
+    setConfirmModalOpen(true);
+  };
+
+  const handleBulkUnclaimClick = () => {
     if (bulkSelectedTokens.size === 0) return;
     setConfirmModalConfig({
-      title: 'Hapus Massal Keychain',
-      message: `Apakah Anda yakin ingin menghapus ${bulkSelectedTokens.size} keychain terpilih? Tindakan ini tidak dapat dibatalkan.`,
-      type: 'delete_bulk'
+      title: 'Reset Status Massal',
+      message: `${bulkSelectedTokens.size} keychain terpilih akan direset ke status unclaimed. Data tidak dihapus, hanya kepemilikan yang dilepas.`,
+      type: 'unclaim_bulk'
     });
     setConfirmModalOpen(true);
   };
@@ -275,8 +285,10 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     
     if (confirmModalConfig.type === 'delete_single' && confirmModalConfig.targetId) {
       await executeDeleteKeychain(confirmModalConfig.targetId);
-    } else if (confirmModalConfig.type === 'delete_bulk') {
-      await executeBulkDeleteKeychains();
+    } else if (confirmModalConfig.type === 'unclaim_single' && confirmModalConfig.targetId) {
+      await executeUnclaimKeychain(confirmModalConfig.targetId);
+    } else if (confirmModalConfig.type === 'unclaim_bulk') {
+      await executeBulkUnclaimKeychains();
     }
   };
 
@@ -299,24 +311,43 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
     }
   };
 
-  const executeBulkDeleteKeychains = async () => {
+  const executeUnclaimKeychain = async (id: string) => {
+    try {
+      const res = await fetch('/api/keychains/unclaim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success('Keychain berhasil direset ke unclaimed!');
+        fetchKeychains(); // Refresh the list
+      } else {
+        throw new Error(result.error || 'Gagal mereset keychain');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal mereset keychain.');
+    }
+  };
+
+  const executeBulkUnclaimKeychains = async () => {
     const tokens = Array.from(bulkSelectedTokens);
     try {
-      const res = await fetch('/api/keychains/bulk-delete', {
+      const res = await fetch('/api/keychains/bulk-unclaim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tokens }),
       });
       const result = await res.json();
       if (result.success) {
-        toast.success(`${tokens.length} keychain berhasil dihapus!`);
+        toast.success(`${tokens.length} keychain berhasil direset ke unclaimed!`);
         setBulkSelectedTokens(new Set());
         fetchKeychains(); // Refresh list
       } else {
-        throw new Error(result.error || 'Gagal menghapus keychains');
+        throw new Error(result.error || 'Gagal mereset keychains');
       }
     } catch (err: any) {
-      toast.error(err.message || 'Gagal menghapus keychains.');
+      toast.error(err.message || 'Gagal mereset keychains.');
     }
   };
 
@@ -1180,12 +1211,12 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                           </Button>
                           <Button
                             size="sm"
-                            variant="destructive"
-                            onClick={handleBulkDeleteClick}
-                            className="h-8 text-[10px] font-bold uppercase tracking-wider gap-1.5 text-white bg-destructive hover:bg-destructive/90"
+                            variant="outline"
+                            onClick={handleBulkUnclaimClick}
+                            className="h-8 text-[10px] font-bold uppercase tracking-wider gap-1.5 border-amber-400 text-amber-600 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/20"
                           >
-                            <Trash2 className="w-3 h-3" />
-                            Hapus {bulkSelectedTokens.size}
+                            <Unlock className="w-3 h-3" />
+                            Reset {bulkSelectedTokens.size}
                           </Button>
                         </>
                       )}
@@ -1408,15 +1439,17 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                                     >
                                       <Copy className="w-3.5 h-3.5" />
                                     </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon-xs"
-                                      title="Hapus Keychain"
-                                      onClick={() => handleDeleteKeychainClick(item.id)}
-                                      className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
+                                    {isClaimed && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon-xs"
+                                        title="Reset ke Unclaimed"
+                                        onClick={() => handleUnclaimKeychainClick(item.id)}
+                                        className="h-7 w-7 text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 rounded-md"
+                                      >
+                                        <Unlock className="w-3.5 h-3.5" />
+                                      </Button>
+                                    )}
                                     <Button
                                       variant="ghost"
                                       size="xs"
@@ -1526,15 +1559,22 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
         document.body
       )}
 
-      {/* Custom Proper Delete Confirmation Modal */}
-      {confirmModalOpen && confirmModalConfig && (
+      {/* Custom Proper Delete/Unclaim Confirmation Modal */}
+      {mounted && confirmModalOpen && confirmModalConfig && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setConfirmModalOpen(false)}
         >
           <Card className="relative bg-card border border-border rounded-3xl shadow-2xl w-full max-w-sm mx-4 p-8 animate-in zoom-in-95 duration-200 space-y-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-destructive/10 mx-auto text-destructive animate-bounce">
-              <AlertCircle className="w-8 h-8 animate-pulse" />
+            <div className={`flex items-center justify-center w-14 h-14 rounded-full mx-auto animate-bounce ${
+              confirmModalConfig.type === 'unclaim_single' || confirmModalConfig.type === 'unclaim_bulk'
+                ? 'bg-amber-100 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400'
+                : 'bg-destructive/10 text-destructive'
+            }`}>
+              {confirmModalConfig.type === 'unclaim_single' || confirmModalConfig.type === 'unclaim_bulk'
+                ? <Unlock className="w-8 h-8 animate-pulse" />
+                : <AlertCircle className="w-8 h-8 animate-pulse" />
+              }
             </div>
 
             <div className="text-center space-y-2">
@@ -1555,15 +1595,20 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
                 Batal
               </Button>
               <Button
-                variant="destructive"
-                className="flex-1 h-11 rounded-xl font-black text-xs uppercase tracking-wider"
+                variant={confirmModalConfig.type === 'unclaim_single' || confirmModalConfig.type === 'unclaim_bulk' ? 'outline' : 'destructive'}
+                className={`flex-1 h-11 rounded-xl font-black text-xs uppercase tracking-wider ${
+                  confirmModalConfig.type === 'unclaim_single' || confirmModalConfig.type === 'unclaim_bulk'
+                    ? 'border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 dark:border-amber-700 dark:text-amber-400'
+                    : ''
+                }`}
                 onClick={handleConfirmAction}
               >
-                Hapus
+                {confirmModalConfig.type === 'unclaim_single' || confirmModalConfig.type === 'unclaim_bulk' ? 'Ya, Reset' : 'Hapus'}
               </Button>
             </div>
           </Card>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
