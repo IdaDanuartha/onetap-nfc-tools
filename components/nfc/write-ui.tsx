@@ -174,6 +174,29 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       return;
     }
     const tokens = Array.from(bulkSelectedTokens);
+    
+    if (tokens.length === 1) {
+      // Single token selected: bypass queue mode completely and write normally
+      keychainQueueRef.current = [];
+      keychainQueueIndexRef.current = 0;
+      setKeychainWriteQueue([]);
+      setKeychainQueueIndex(0);
+      
+      setKeychainToken(tokens[0]);
+      setBulkSelectedTokens(new Set());
+      
+      setActiveTab('keychain');
+      setRecordType('keychain');
+      localStorage.setItem('onetap_nfc_active_tab', 'keychain');
+      
+      toast.success(`Token ${tokens[0]} siap ditulis!`);
+      setTimeout(() => {
+        handleWriteStart();
+      }, 100);
+      return;
+    }
+    
+    // Multiple tokens: enter queue mode
     keychainQueueRef.current = tokens;
     keychainQueueIndexRef.current = 0;
     setKeychainWriteQueue(tokens);
@@ -642,6 +665,13 @@ export function WriteUI({ userId, userEmail, userName }: WriteUIProps) {
       if (isBulkMode) {
         setBulkLog(prev => [{ index: bulkCount + 1, status: 'error', message: msg }, ...prev]);
       }
+      
+      // Clean up queue ref and states on error to prevent hijacking subsequent single writes
+      keychainQueueRef.current = [];
+      keychainQueueIndexRef.current = 0;
+      setKeychainWriteQueue([]);
+      setKeychainQueueIndex(0);
+      
       setStatus('idle');
     }
   }
